@@ -787,17 +787,453 @@ def calculate_volatility(df, windows=[5, 10, 20]):
     return df
 ```
 
+### 5.2.7. EMA (Exponential Moving Average) - Chi tiết
+
+**Tại sao cần EMA khi đã có MA?**
+
+```
+MA (Simple Moving Average):
+- Tất cả ngày có trọng số bằng nhau
+- Ví dụ MA_5: (Day1 + Day2 + Day3 + Day4 + Day5) / 5
+- Chậm phản ứng với thay đổi giá
+
+EMA (Exponential Moving Average):
+- Ngày gần đây có trọng số cao hơn
+- Phản ứng nhanh với thay đổi giá
+- Dùng trong MACD để bắt tín hiệu nhanh
+```
+
+**Công thức EMA:**
+```
+EMA_today = α × Price_today + (1-α) × EMA_yesterday
+
+Trong đó:
+α = 2 / (period + 1)  # Smoothing factor
+
+Ví dụ EMA_12:
+α = 2 / (12 + 1) = 0.1538
+
+→ Giá hôm nay chiếm 15.38%
+→ EMA hôm qua chiếm 84.62%
+```
+
+**So sánh trọng số:**
+```
+MA_5: Mỗi ngày 20%
+Day 1: ████████████████████ (20%)
+Day 2: ████████████████████ (20%)
+Day 3: ████████████████████ (20%)
+Day 4: ████████████████████ (20%)
+Day 5: ████████████████████ (20%)
+
+EMA_5: Ngày gần có trọng số cao hơn
+Day 1: ██████ (3.9%)
+Day 2: ████████ (6.5%)
+Day 3: ██████████ (10.8%)
+Day 4: ██████████████ (17.9%)
+Day 5: ████████████████████████████ (60.9%)
+```
+
+**Khi nào dùng MA, khi nào dùng EMA?**
+
+| Chỉ số | Ưu điểm | Nhược điểm | Dùng khi |
+|--------|---------|------------|----------|
+| **MA** | Ổn định, ít nhiễu | Chậm | Xu hướng dài hạn (ma_50, ma_200) |
+| **EMA** | Nhanh, nhạy | Nhiễu nhiều | Xu hướng ngắn hạn, MACD |
+
+**Code:**
+```python
+def calculate_ema(df, spans=[12, 26]):
+    """
+    Calculate Exponential Moving Average
+    """
+    for span in spans:
+        col_name = f'ema_{span}'
+        df[col_name] = df['close'].ewm(span=span, adjust=False).mean()
+    return df
+
+# Trong TechPulse: đã có sẵn trong build_features.py
+df = calculate_ema(df, spans=[12, 26])
+# → ema_12, ema_26 (dùng cho MACD)
+```
+
+**Ví dụ thực tế:**
+```python
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# Giả sử FPT có giá tăng đột ngột
+prices = [80, 82, 81, 84, 85, 95, 94, 93, 92, 91]  # ↑ tăng mạnh ở ngày 6
+
+df = pd.DataFrame({'close': prices})
+
+# Tính MA và EMA
+df['ma_5'] = df['close'].rolling(window=5).mean()
+df['ema_5'] = df['close'].ewm(span=5, adjust=False).mean()
+
+print(df[['close', 'ma_5', 'ema_5']])
+
+# Kết quả:
+#   close   ma_5  ema_5
+# 0    80    NaN   80.00
+# 1    82    NaN   80.67
+# 2    81    NaN   80.78
+# 3    84    NaN   81.85
+# 4    85   82.4   82.90
+# 5    95   85.4   87.27  ← EMA phản ứng nhanh hơn
+# 6    94   87.8   89.85
+# 7    93   90.4   91.23
+# 8    92   93.8   91.49
+# 9    91   93.0   91.33
+
+# Nhận xét:
+# - Khi giá tăng đột ngột (ngày 6: 85→95)
+# - EMA phản ứng nhanh: 82.90 → 87.27 (+4.37)
+# - MA phản ứng chậm: 82.4 → 85.4 (+3.0)
+```
+
+### 5.2.8. Momentum (Động lực giá)
+
+**Momentum là gì?**
+```
+Momentum = Tốc độ thay đổi giá
+         = Giá hôm nay - Giá N ngày trước
+
+Ý nghĩa:
+- Đo "động lực" tăng/giảm của giá
+- Momentum > 0: Đang tăng (bullish)
+- Momentum < 0: Đang giảm (bearish)
+- |Momentum| lớn: Động lực mạnh
+```
+
+**Công thức:**
+```
+Momentum_n = P_today - P_{n days ago}
+
+Ví dụ Momentum_5:
+Momentum_5 = Giá hôm nay - Giá 5 ngày trước
+```
+
+**Ví dụ đời thường:**
+```
+Giống như xe hơi:
+- Momentum dương lớn: Tăng tốc mạnh (60 → 100 km/h)
+- Momentum dương nhỏ: Tăng chậm (60 → 65 km/h)
+- Momentum = 0: Giữ nguyên tốc độ
+- Momentum âm: Giảm tốc (phanh)
+```
+
+**Code:**
+```python
+def calculate_momentum(df, periods=[5, 10, 20]):
+    """
+    Calculate price momentum
+    """
+    for period in periods:
+        col_name = f'momentum_{period}'
+        df[col_name] = df['close'] - df['close'].shift(period)
+    return df
+
+# Trong TechPulse: đã có sẵn trong build_features.py
+df = calculate_momentum(df, periods=[5, 10, 20])
+# → momentum_5, momentum_10, momentum_20
+```
+
+**Ví dụ thực tế:**
+```python
+# FPT 10 ngày
+dates = pd.date_range('2024-01-01', periods=10)
+prices = [80, 82, 85, 83, 87, 90, 88, 92, 95, 93]
+
+df = pd.DataFrame({'date': dates, 'close': prices})
+
+# Tính Momentum_5
+df['momentum_5'] = df['close'] - df['close'].shift(5)
+
+print(df[['date', 'close', 'momentum_5']])
+
+# Kết quả:
+#         date  close  momentum_5
+# 0  2024-01-01    80         NaN
+# 1  2024-01-02    82         NaN
+# 2  2024-01-03    85         NaN
+# 3  2024-01-04    83         NaN
+# 4  2024-01-05    87         NaN
+# 5  2024-01-06    90        10.0  ← 90 - 80 = +10
+# 6  2024-01-07    88         6.0  ← 88 - 82 = +6
+# 7  2024-01-08    92         7.0  ← 92 - 85 = +7
+# 8  2024-01-09    95        12.0  ← 95 - 83 = +12
+# 9  2024-01-10    93         6.0  ← 93 - 87 = +6
+
+# Giải thích:
+# - Ngày 5-8: Momentum dương → Giá tăng mạnh
+# - Ngày 9: Momentum +12 (cao nhất) → Động lực mạnh nhất
+# - Ngày 10: Momentum giảm xuống +6 → Động lực yếu đi
+```
+
+**Cách đọc Momentum:**
+```
+Momentum > 0:  Giá cao hơn N ngày trước → Xu hướng tăng
+Momentum = 0:  Giá giữ nguyên
+Momentum < 0:  Giá thấp hơn N ngày trước → Xu hướng giảm
+
+|Momentum| lớn:   Động lực mạnh (tăng/giảm nhanh)
+|Momentum| nhỏ:   Động lực yếu (đi ngang)
+
+Momentum tăng:     Tăng tốc (bullish signal)
+Momentum giảm:     Giảm tốc (có thể đảo chiều)
+```
+
+### 5.2.9. Simple Return vs Log Return
+
+**Trong TechPulse hiện tại: Dùng Simple Return**
+
+```python
+# Code trong build_features.py
+def calculate_returns(df, periods=[1, 5, 10, 20]):
+    for period in periods:
+        col_name = f'return_{period}d'
+        df[col_name] = df['close'].pct_change(periods=period) * 100
+    return df
+
+# Kết quả: return_1d, return_5d, return_10d, return_20d
+```
+
+**Simple Return (Đang dùng):**
+```
+Simple Return = (P_today - P_yesterday) / P_yesterday × 100%
+
+Ví dụ:
+Hôm qua: 80,000
+Hôm nay: 84,000
+
+Simple Return = (84,000 - 80,000) / 80,000 × 100
+              = 5%
+```
+
+**Log Return (Có thể thêm):**
+```
+Log Return = ln(P_today / P_yesterday)
+
+Ví dụ:
+Log Return = ln(84,000 / 80,000)
+           = ln(1.05)
+           = 0.04879  # ≈ 4.88%
+```
+
+**So sánh:**
+
+| Đặc điểm | Simple Return | Log Return |
+|----------|---------------|------------|
+| **Dễ hiểu** | ✅ "Tăng 5%" | ❌ "0.0488" |
+| **Cộng được** | ❌ 5% + 5% ≠ 10% thực tế | ✅ log(AB) = log(A) + log(B) |
+| **Symmetric** | ❌ +10% rồi -10% ≠ về giá gốc | ✅ Đối xứng |
+| **Dùng trong** | Thực tế, báo cáo | ML/Research, papers |
+
+**Ví dụ tính chất cộng:**
+```python
+import numpy as np
+
+# FPT 3 ngày
+prices = [100, 110, 121]
+
+# Simple Returns
+r1 = (110 - 100) / 100  # 10%
+r2 = (121 - 110) / 110  # 10%
+r_total = r1 + r2       # 20%  ← SAI!
+
+actual = (121 - 100) / 100  # 21%  ← Đúng
+
+# Log Returns
+log_r1 = np.log(110/100)   # 0.0953
+log_r2 = np.log(121/110)   # 0.0953
+log_total = log_r1 + log_r2  # 0.1906
+actual_log = np.log(121/100) # 0.1906  ← Đúng!
+
+print(f"Simple: {r_total:.1%} vs {actual:.1%}")  # 20.0% vs 21.0%
+print(f"Log: {log_total:.4f} vs {actual_log:.4f}")  # Khớp!
+```
+
+**Khi nào dùng gì?**
+
+| Use Case | Dùng | Lý do |
+|----------|------|-------|
+| **ML Training** | Log Return | Tính chất toán học tốt hơn |
+| **Báo cáo** | Simple Return | Dễ hiểu: "Tăng 5%" |
+| **Research Paper** | Log Return | Chuẩn academic |
+| **Dashboard** | Simple Return | User-friendly |
+
+**Thêm Log Return vào TechPulse (optional):**
+```python
+def calculate_log_returns(df, periods=[1, 5, 10, 20]):
+    """
+    Calculate log returns (optional - for ML/research)
+    """
+    import numpy as np
+    
+    for period in periods:
+        col_name = f'log_return_{period}d'
+        df[col_name] = np.log(df['close'] / df['close'].shift(period))
+    
+    return df
+
+# Nếu muốn dùng:
+df = calculate_log_returns(df)
+# → log_return_1d, log_return_5d, ...
+```
+
+### 5.2.10. Drawdown (Rủi ro thực tế)
+
+**Drawdown là gì?**
+```
+Drawdown = Mức sụt giảm từ đỉnh cao nhất
+         = (Giá hiện tại - Đỉnh cao) / Đỉnh cao × 100%
+
+Ý nghĩa:
+"Nếu mua ở đỉnh, đang thua lỗ bao nhiêu %?"
+```
+
+**Ví dụ đời thường:**
+```
+Leo núi:
+- Bạn leo lên đỉnh: 3000m (Peak)
+- Bây giờ xuống: 2500m (Current)
+- Drawdown = (2500 - 3000) / 3000 = -16.7%
+
+→ Từ đỉnh, bạn xuống 16.7%
+```
+
+**Maximum Drawdown (MDD):**
+```
+MDD = Drawdown lớn nhất trong cả khoảng thời gian
+
+Ví dụ FPT:
+Jan: 100
+Feb: 110  ← Peak
+Mar: 95   ← Drawdown = -13.6%
+Apr: 100
+May: 90   ← Drawdown = -18.2%  ← MDD!
+
+→ Maximum Drawdown = -18.2%
+→ "Thua lỗ tối đa 18.2% nếu mua ở đỉnh Feb"
+```
+
+**Tại sao Drawdown quan trọng?**
+```
+Volatility:  Đo biến động (cả lên và xuống)
+Drawdown:    Đo rủi ro thua lỗ thực tế (chỉ xuống)
+
+Ví dụ:
+Stock A: Biến động ±5% mỗi ngày, không thua lỗ lớn
+Stock B: Biến động ±2% mỗi ngày, nhưng có đợt giảm 30%
+
+→ Volatility: A > B
+→ Drawdown: B > A (rủi ro thật sự!)
+```
+
+**Code:**
+```python
+def calculate_drawdown(df):
+    """
+    Calculate drawdown and maximum drawdown
+    CHƯA CÓ trong TechPulse - Bạn có thể thêm!
+    """
+    # Running maximum (đỉnh cao nhất đến thời điểm hiện tại)
+    running_max = df['close'].cummax()
+    
+    # Drawdown từng ngày
+    df['drawdown'] = (df['close'] - running_max) / running_max * 100
+    
+    # Maximum Drawdown
+    max_dd = df['drawdown'].min()
+    
+    return df, max_dd
+```
+
+**Ví dụ thực tế:**
+```python
+# FPT 10 ngày
+dates = pd.date_range('2024-01-01', periods=10)
+prices = [100, 110, 105, 108, 95, 98, 102, 100, 105, 103]
+
+df = pd.DataFrame({'date': dates, 'close': prices})
+
+# Tính running max
+df['running_max'] = df['close'].cummax()
+
+# Tính drawdown
+df['drawdown'] = (df['close'] - df['running_max']) / df['running_max'] * 100
+
+print(df[['date', 'close', 'running_max', 'drawdown']])
+
+# Kết quả:
+#         date  close  running_max  drawdown
+# 0  2024-01-01    100          100      0.00%
+# 1  2024-01-02    110          110      0.00%  ← New peak
+# 2  2024-01-03    105          110     -4.55%  ← Xuống từ đỉnh
+# 3  2024-01-04    108          110     -1.82%
+# 4  2024-01-05     95          110    -13.64%  ← MDD!
+# 5  2024-01-06     98          110    -10.91%
+# 6  2024-01-07    102          110     -7.27%
+# 7  2024-01-08    100          110     -9.09%
+# 8  2024-01-09    105          110     -4.55%
+# 9  2024-01-10    103          110     -6.36%
+
+# Maximum Drawdown = -13.64%
+# → Nếu mua ở đỉnh 110, thua lỗ tối đa 13.64%
+```
+
+**Cách đọc Drawdown:**
+```
+Drawdown = 0:       Đang ở đỉnh cao nhất
+Drawdown < -10%:    Đang sụt giảm đáng kể
+MDD < -20%:         Rủi ro cao (bear market)
+MDD < -50%:         Rủi ro rất cao (crash)
+
+Ví dụ thị trường:
+- Normal: MDD ~ -10% đến -20%
+- Bear market: MDD ~ -20% đến -40%
+- COVID crash 2020: MDD ~ -40% đến -50%
+```
+
+**Drawdown trong Risk Management:**
+```
+Khi đầu tư, bạn cần biết:
+1. Expected Return: Kỳ vọng lãi bao nhiêu?
+2. Volatility: Biến động thế nào?
+3. Maximum Drawdown: Thua lỗi tối đa bao nhiêu?
+
+Ví dụ:
+Portfolio A: Return +20%, Volatility 10%, MDD -15%
+Portfolio B: Return +25%, Volatility 15%, MDD -30%
+
+→ B lãi cao hơn nhưng rủi ro (MDD) cũng cao hơn!
+→ Phải cân nhắc risk tolerance
+```
+
 ## 5.3. Bảng tổng hợp features
 
-| Feature | Ý nghĩa | Cách đọc |
-|---------|---------|----------|
-| return_1d | Lợi nhuận 1 ngày | +2% = Hôm qua tăng 2% |
-| ma_20 | Trung bình 20 ngày | Giá > MA_20 → Tăng |
-| rsi_14 | Sức mạnh xu hướng | > 70: Overbought, < 30: Oversold |
-| macd | Xu hướng | > 0: Bullish |
-| macd_hist | Động lượng | Histogram tăng → Tăng tốc |
-| bb_upper | Biên trên | Giá chạm → Có thể giảm |
-| volatility_20 | Độ biến động | Cao = Rủi ro cao |
+| Feature | Ý nghĩa | Cách đọc | Có trong code |
+|---------|---------|----------|---------------|
+| **Returns** |
+| return_1d | Lợi nhuận 1 ngày (Simple) | +2% = Hôm qua tăng 2% | ✅ |
+| log_return_1d | Lợi nhuận 1 ngày (Log) | 0.02 ≈ 2% (dùng ML/research) | ❌ (Có thể thêm) |
+| **Moving Averages** |
+| ma_20 | Trung bình 20 ngày (Simple) | Giá > MA_20 → Tăng | ✅ |
+| ema_12 | Trung bình 12 ngày (Exponential) | Phản ứng nhanh, dùng MACD | ✅ |
+| **Momentum** |
+| momentum_5 | Động lực giá 5 ngày | > 0: Tăng, < 0: Giảm | ✅ |
+| **Trend Indicators** |
+| rsi_14 | Sức mạnh xu hướng | > 70: Overbought, < 30: Oversold | ✅ |
+| macd | Xu hướng (EMA_12 - EMA_26) | > 0: Bullish | ✅ |
+| macd_hist | Động lượng (MACD - Signal) | Histogram tăng → Tăng tốc | ✅ |
+| **Volatility & Risk** |
+| volatility_20 | Độ biến động 20 ngày | Cao = Rủi ro cao | ✅ |
+| bb_upper | Bollinger Band trên | Giá chạm → Có thể giảm | ✅ |
+| bb_width | Độ rộng Bollinger | Rộng = Volatility cao | ✅ |
+| drawdown | Sụt giảm từ đỉnh | -10% = Giảm 10% từ peak | ❌ (Có thể thêm) |
+| **Volume** |
+| volume_ratio | Volume / TB 20 ngày | > 1.5 = Giao dịch sôi động | ✅ |
 
 ## 5.4. Bài tập Module 3
 
@@ -819,6 +1255,48 @@ prices = [100, 102, 104, 103, 105, 108, 110]
 # Cho:
 # macd = -0.5, macd_signal = -0.8, macd_hist = 0.3
 # Xu hướng hiện tại là gì? Sắp có tín hiệu gì?
+```
+
+### Bài tập 3.4: So sánh MA vs EMA
+```python
+# Cho giá FPT tăng đột ngột:
+prices = [80, 82, 81, 84, 85, 95, 94, 93]
+
+# Tính cả MA_5 và EMA_5
+# Câu hỏi:
+# 1. Cái nào phản ứng nhanh hơn khi giá tăng đột ngột (ngày 6)?
+# 2. Tại sao MACD dùng EMA thay vì MA?
+```
+
+### Bài tập 3.5: Tính Momentum
+```python
+# FPT 8 ngày
+prices = [100, 102, 105, 103, 108, 110, 107, 112]
+
+# Tính momentum_5 cho ngày cuối cùng
+# Giải thích ý nghĩa con số đó
+```
+
+### Bài tập 3.6: Hiểu Drawdown
+```python
+# FPT 7 ngày
+prices = [100, 110, 105, 108, 95, 98, 102]
+
+# Câu hỏi:
+# 1. Đỉnh cao nhất (peak) là ngày nào?
+# 2. Drawdown lớn nhất (MDD) là bao nhiêu?
+# 3. Nếu mua ở đỉnh, thua lỗ tối đa bao nhiêu %?
+```
+
+### Bài tập 3.7: Simple vs Log Returns
+```python
+# Giá tăng 10%, sau đó giảm 10%
+# Price: 100 → 110 → 99
+
+# Câu hỏi:
+# 1. Tính Simple Returns: r1, r2, r_total
+# 2. Tính Log Returns: log_r1, log_r2, log_total
+# 3. Cái nào cho kết quả chính xác hơn? Tại sao?
 ```
 
 ---
@@ -910,6 +1388,34 @@ data/features/vn30/ACB.csv
 └── Range:      daily_range, daily_range_pct, price_range_*, atr_14, ... (10+ cột)
 
 TỔNG: ~45 cột features
+
+📚 CHI TIẾT CÁC FEATURES ĐÃ HỌC:
+
+**✅ Có trong code (build_features.py):**
+- Returns: return_1d, return_5d, return_10d, return_20d (Simple Returns)
+- MA: ma_5, ma_10, ma_20, ma_50 (Simple Moving Average)
+- EMA: ema_12, ema_26 (Exponential Moving Average)
+- Volatility: volatility_5, volatility_10, volatility_20
+- RSI: rsi_14 (Relative Strength Index)
+- MACD: macd, macd_signal, macd_hist
+- Bollinger: bb_middle, bb_upper, bb_lower, bb_width
+- Volume: volume_ma_20, volume_ratio, volume_change
+- Momentum: momentum_5, momentum_10, momentum_20
+- Range: daily_range, atr_14, price_range_*, ...
+
+**❌ Chưa có (bạn có thể thêm):**
+- Log Returns: log_return_1d, log_return_5d, ... (dùng cho ML/research)
+- Drawdown: drawdown, max_drawdown (đo rủi ro thực tế)
+
+**📖 Đã học trong LEARNING_GUIDE này:**
+- Section 5.2.1-5.2.6: RSI, MACD, Bollinger, Volatility (cơ bản)
+- Section 5.2.7: EMA chi tiết (so sánh MA vs EMA, khi nào dùng gì)
+- Section 5.2.8: Momentum (công thức, ý nghĩa, code)
+- Section 5.2.9: Simple vs Log Returns (so sánh, khi nào dùng gì)
+- Section 5.2.10: Drawdown (MDD, rủi ro thực tế)
+
+**💡 TẤT CẢ NỘI DUNG VỀ FEATURES ĐÃ CÓ TRONG FILE NÀY!**
+→ Không cần đọc thêm file nào khác
 ```
 
 ---
@@ -966,27 +1472,50 @@ TỔNG: ~45 cột features
 | **logging** | logger.info, logger.warning, logger.error |
 | **typing** | List, Dict, Optional, type hints |
 
-## 7.3. Bước tiếp theo (PROPOSAL)
+## 7.3. Bước tiếp theo (PROPOSAL - VIETNAM FOCUS)
 
-Theo PROPOSAL, các bước tiếp theo sẽ là:
+Theo PROPOSAL (đã điều chỉnh cho thị trường Việt Nam), các bước tiếp theo sẽ là:
 
-1. **Thêm nguồn dữ liệu:**
-   - SEC EDGAR (báo cáo tài chính Mỹ)
-   - FRED (dữ liệu vĩ mô)
-   - GDELT (tin tức)
+1. **Thêm nguồn dữ liệu Việt Nam:**
+   - ✅ **CafeF News** (tin tức chứng khoán VN)
+   - ✅ **VnExpress** (tin tức kinh tế VN)
+   - ⏳ Vietnamese sentiment analysis (PhoBERT)
+   - ⏳ Macro data VN (GDP, CPI, lãi suất - nếu có API)
 
 2. **Xây dựng mô hình dự báo:**
-   - Baseline: ARIMA, GARCH
-   - ML: XGBoost, LightGBM
-   - DL: LSTM, Transformer (iTransformer, TimesNet)
+   - ⏳ Baseline: ARIMA, GARCH, Linear Regression
+   - ⏳ ML: XGBoost, LightGBM, Random Forest
+   - ⏳ DL: LSTM, GRU
+   - ⏳ Transformer: iTransformer, TimesNet (LTSF)
 
 3. **Phát hiện bất thường:**
-   - Anomaly Transformer
-   - TranAD
+   - ⏳ Anomaly Transformer
+   - ⏳ TranAD
+   - ⏳ Isolation Forest
 
-4. **Giải thích (XAI):**
-   - SHAP
-   - Integrated Gradients
+4. **Vietnamese NLP & Multimodal:**
+   - ⏳ Vietnamese text processing (underthesea, pyvi)
+   - ⏳ Sentiment analysis (PhoBERT, vn-sentiment)
+   - ⏳ Event detection từ tin tức VN
+   - ⏳ Multimodal fusion (price + Vietnamese text)
+   - ⏳ Cross-modal attention mechanism
+
+5. **Event-Aware Training (PAIN POINT):**
+   - ⏳ Detect event days (volume spike, news, volatility)
+   - ⏳ Weighted loss function cho event days
+   - ⏳ Shock-focused metrics (Tail Loss, CVaR)
+   - ⏳ Compare: normal vs event-aware training
+
+6. **Regime Detection:**
+   - ⏳ Hidden Markov Model (HMM)
+   - ⏳ Detect regime changes trong VN30
+   - ⏳ Separate models cho different regimes
+
+7. **Giải thích (Efficient XAI):**
+   - ⏳ SHAP (SHapley Additive exPlanations)
+   - ⏳ TimeSHAP (time series specific)
+   - ⏳ Integrated Gradients
+   - ⏳ Efficient approximations (pruning, sampling)
    - TimeSHAP
 
 ## 7.4. Bài tập tổng hợp

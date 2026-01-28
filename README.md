@@ -106,11 +106,26 @@ df_features = build_features(df_clean, ticker='FPT')
 
 ## 📚 Documentation
 
-Detailed documentation and learning guides are available in each module:
+### **🎓 Learning Resources (NEW!)**
 
-- `src/clean/LEARNING_GUIDE_clean_price.md` - Data cleaning guide
-- `src/features/LEARNING_GUIDE_build_features.md` - Feature engineering guide
-- `src/pipeline/đọc hiểu/LEARNING_GUIDE_run_crawler.md` - Crawler pipeline guide
+Comprehensive learning guides for the full project (from basics to research):
+
+- **[📖 INDEX](docs/INDEX.md)** - Complete documentation index
+- **[🗺️ ROADMAP](docs/ROADMAP_FULL_PROJECT.md)** - 24-week learning roadmap
+- **[📚 Phase 1: Foundations](docs/01_foundations/)** - ML, DL, Time Series basics
+- **[🤖 Phase 2: Modeling](docs/02_modeling/)** - Baseline, ML, LSTM, Transformers
+- **[🔗 Phase 3: Multimodal](docs/03_multimodal/)** - News, text, event detection
+- **[🎯 Phase 4: Advanced](docs/04_advanced/)** - Event-aware, regime detection, XAI
+- **[📊 Phase 5: Evaluation](docs/05_evaluation/)** - Metrics, backtesting, case studies
+- **[📝 Phase 6: Paper Writing](docs/06_paper_writing/)** - Research methodology
+
+### **📖 Module Documentation**
+
+Detailed guides for current implementation:
+
+- `docs/LEARNING_GUIDE_FULL_SYSTEM.md` - Full system overview
+- `HƯỚNG_DẪN_CẤU_TRÚC_DỰ_ÁN.md` - Project structure guide
+- `HƯỚNG_DẪN_CRAWL_10_NĂM_VÀ_FEATURES.md` - 10-year data crawling guide
 
 ## 🤝 Contributing
 
