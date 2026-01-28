@@ -1,0 +1,70 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+ENV/
+env/
+.venv
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb
+
+# Data files (không commit dữ liệu lên Git)
+data/raw/
+data/clean/
+data/features/
+data/processed/
+*.csv
+*.xlsx
+*.xls
+
+# Logs
+logs/
+*.log
+
+# Config files có thông tin nhạy cảm
+configs/secrets.yaml
+configs/api_keys.yaml
+.env
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Temporary files
+*.tmp
+*.temp
+~$*
+
+# Word documents temporary
+~$*.docx
+~$*.doc

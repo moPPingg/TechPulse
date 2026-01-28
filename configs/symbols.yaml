@@ -1,0 +1,77 @@
+# Danh sách các mã cổ phiếu
+# Cập nhật: Q1/2026
+
+# VN30 - 30 cổ phiếu vốn hóa lớn nhất HOSE
+vn30:
+  - ACB   # Ngân hàng Á Châu
+  - BCM   # Khoáng sản Bắc Cạn
+  - BID   # Ngân hàng BIDV
+  - BVH   # Bảo Việt Holdings
+  - CTG   # Ngân hàng Vietinbank
+  - FPT   # FPT Corporation
+  - GAS   # PetroVietnam Gas
+  - GVR   # Cao su Việt Nam
+  - HDB   # Ngân hàng HDBank
+  - HPG   # Hòa Phát Group
+  - MBB   # Ngân hàng MB
+  - MSN   # Masan Group
+  - MWG   # Mobile World
+  - PLX   # Petrolimex
+  - POW   # PetroVietnam Power
+  - SAB   # Sabeco
+  - SSI   # SSI Securities
+  - STB   # Ngân hàng Sacombank
+  - TCB   # Ngân hàng Techcombank
+  - TPB   # Ngân hàng TPBank
+  - VCB   # Ngân hàng Vietcombank
+  - VHM   # Vinhomes
+  - VIB   # Ngân hàng VIB
+  - VIC   # Vingroup
+  - VJC   # Vietjet Air
+  - VNM   # Vinamilk
+  - VPB   # Ngân hàng VPBank
+  - VRE   # Vincom Retail
+  - SSB   # Ngân hàng SeABank
+  - PDR   # Phát Đạt
+
+# Nhóm ngân hàng
+banks:
+  - ACB
+  - BID
+  - CTG
+  - HDB
+  - MBB
+  - STB
+  - TCB
+  - TPB
+  - VCB
+  - VIB
+  - VPB
+  - SSB
+
+# Nhóm công nghệ
+tech:
+  - FPT
+  - SSI
+  - MWG
+
+# Nhóm bất động sản
+real_estate:
+  - VHM
+  - VIC
+  - VRE
+  - PDR
+
+# Nhóm năng lượng
+energy:
+  - GAS
+  - PLX
+  - POW
+
+# Nhóm hàng tiêu dùng
+consumer:
+  - MSN
+  - SAB
+  - VNM
+  - VJC
+  - MWG

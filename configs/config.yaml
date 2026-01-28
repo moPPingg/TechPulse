@@ -1,0 +1,89 @@
+# TechPulse Configuration File
+# Cấu hình chung cho toàn bộ dự án
+
+project:
+  name: "TechPulse"
+  version: "1.0.0"
+  description: "Stock price forecasting and anomaly detection system"
+
+# Đường dẫn dữ liệu
+data:
+  raw_dir: "data/raw/vn30"
+  clean_dir: "data/clean/vn30"
+  features_dir: "data/features/vn30"
+  processed_dir: "data/processed/vn30"
+
+# Cấu hình crawl
+crawl:
+  timeout: 60                # Timeout cho HTTP request (seconds)
+  page_size: 3000            # Số bản ghi tối đa mỗi request
+  max_retries: 3             # Số lần thử lại khi lỗi
+  retry_delay: 5             # Thời gian chờ giữa các lần retry (seconds)
+  default_start_date: "01/01/2015"  # Ngày bắt đầu mặc định (10 năm trước)
+
+# Cấu hình clean
+clean:
+  remove_duplicates: true    # Xóa dòng trùng lặp
+  remove_nulls: true         # Xóa dòng có null
+  validate: true             # Validate dữ liệu
+  skip_on_error: true        # Bỏ qua file lỗi và tiếp tục
+
+# Cấu hình features
+features:
+  # Returns (lợi nhuận)
+  returns:
+    periods: [1, 5, 10, 20]
+  
+  # Moving Averages (trung bình động)
+  moving_averages:
+    windows: [5, 10, 20, 50, 200]
+  
+  # Exponential Moving Averages
+  ema:
+    spans: [12, 26]
+  
+  # Volatility (độ biến động)
+  volatility:
+    windows: [5, 10, 20]
+  
+  # RSI (Relative Strength Index)
+  rsi:
+    period: 14
+  
+  # MACD (Moving Average Convergence Divergence)
+  macd:
+    fast: 12
+    slow: 26
+    signal: 9
+  
+  # Bollinger Bands
+  bollinger:
+    window: 20
+    num_std: 2
+  
+  # Volume features
+  volume:
+    ma_window: 20
+  
+  # Momentum
+  momentum:
+    periods: [5, 10, 20]
+  
+  # Price Range
+  price_range:
+    windows: [5, 10, 20]
+    atr_period: 14
+
+# Cấu hình logging
+logging:
+  level: "INFO"              # DEBUG, INFO, WARNING, ERROR, CRITICAL
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "logs/techpulse.log"
+  max_bytes: 10485760        # 10MB
+  backup_count: 5
+
+# Cấu hình pipeline
+pipeline:
+  skip_on_error: true
+  save_intermediate: true    # Lưu kết quả trung gian
+  parallel: false            # Chạy song song (future feature)
