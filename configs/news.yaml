@@ -1,0 +1,87 @@
+# News pipeline configuration (research-grade)
+# Used by: src/news/pipeline.py, scripts/run_news_pipeline.py
+
+# Database (SQLite path; use absolute or relative to project root)
+database:
+  path: "data/news/news.db"
+
+# Sources to crawl (enabled + list pages / categories)
+sources:
+  cafef:
+    enabled: false
+    base_url: "https://cafef.vn"
+    categories:
+      - "thi-truong-chung-khoan"
+    max_pages_per_run: 3
+    request_delay_seconds: 2
+    timeout_seconds: 30
+
+  vietstock:
+    enabled: true
+    base_url: "https://vietstock.vn"
+    categories:
+      - "chung-khoan.htm"
+    max_pages_per_run: 2
+    request_delay_seconds: 0.8
+    timeout_seconds: 15
+
+  vnexpress:
+    enabled: true
+    base_url: "https://vnexpress.net"
+    categories:
+      - "kinh-doanh/chung-khoan"
+    max_pages_per_run: 2
+    request_delay_seconds: 0.8
+    timeout_seconds: 15
+
+  hsx:
+    enabled: true
+    base_url: "https://www.hsx.vn"
+    categories:
+      - "vi"
+    max_pages_per_run: 1
+    request_delay_seconds: 0.8
+    timeout_seconds: 15
+
+  vneconomy:
+    enabled: true
+    base_url: "https://vneconomy.vn"
+    categories:
+      - ""
+    max_pages_per_run: 1
+    request_delay_seconds: 0.8
+    timeout_seconds: 15
+
+  tradingeconomics:
+    enabled: true
+    base_url: "https://tradingeconomics.com"
+    categories:
+      - "vietnam/indicators"
+    max_pages_per_run: 1
+    request_delay_seconds: 0.8
+    timeout_seconds: 15
+
+  ssc:
+    enabled: true
+    base_url: "https://ssc.gov.vn"
+    categories:
+      - "webcenter/portal/ubck"
+    max_pages_per_run: 1
+    request_delay_seconds: 0.8
+    timeout_seconds: 15
+
+# Text cleaning
+clean:
+  strip_html: true
+  normalize_whitespace: true
+  max_body_chars: 50000
+
+# Sentiment (method: lexicon | phobert; lexicon is default for research baseline)
+sentiment:
+  method: "lexicon"
+  # model_path: "path/to/phobert"  # optional when method=phobert
+
+# Ticker alignment (VN30 symbols + optional aliases path)
+ticker_align:
+  symbols: "configs/symbols.yaml"  # vn30 list
+  match_in: ["title", "body"]

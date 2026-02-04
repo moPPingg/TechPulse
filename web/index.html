@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TechPulse – Khuyến nghị cổ phiếu</title>
+  <link rel="stylesheet" href="/static/css/style.css" />
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Khuyến nghị cổ phiếu</h1>
+      <p class="caption">Nhập thông tin và mã cổ phiếu để nhận khuyến nghị và đánh giá rủi ro. Không phải lời khuyên đầu tư.</p>
+    </header>
+
+    <form id="profile-form" class="form-card">
+      <label>
+        <span>Họ tên (hoặc nickname)</span>
+        <input type="text" name="name" placeholder="Nguyễn Văn A" />
+      </label>
+      <label>
+        <span>Vốn (VND)</span>
+        <input type="number" name="capital" min="0" value="100000000" step="10000000" />
+      </label>
+      <label>
+        <span>Kinh nghiệm đầu tư</span>
+        <select name="years_experience">
+          <option value="< 1 năm">&lt; 1 năm</option>
+          <option value="1–3 năm" selected>1–3 năm</option>
+          <option value="3–5 năm">3–5 năm</option>
+          <option value="5+ năm">5+ năm</option>
+        </select>
+      </label>
+      <label>
+        <span>Khả năng chấp nhận rủi ro</span>
+        <select name="risk_tolerance">
+          <option value="Thấp">Thấp</option>
+          <option value="Trung bình" selected>Trung bình</option>
+          <option value="Cao">Cao</option>
+        </select>
+      </label>
+      <label>
+        <span>Mã cổ phiếu (VN30)</span>
+        <select name="symbol" id="symbol-select">
+          <option value="FPT">FPT</option>
+          <!-- Các mã khác được nạp bằng JS từ /api/symbols -->
+        </select>
+      </label>
+      <button type="submit" id="submit-btn">Xem khuyến nghị</button>
+    </form>
+
+    <div id="message" class="message" aria-live="polite"></div>
+    <div id="result" class="result" hidden>
+      <div id="recommendation-card" class="rec-card"></div>
+      <div class="metrics">
+        <div class="metric">
+          <span class="metric-label">Xác suất lỗ trong kỳ</span>
+          <span id="risk-loss" class="metric-value"></span>
+        </div>
+        <div class="metric">
+          <span class="metric-label">Rủi ro sụt giảm mạnh vốn</span>
+          <span id="risk-ruin" class="metric-value"></span>
+        </div>
+      </div>
+      <section class="explanation">
+        <h2>Giải thích</h2>
+        <p id="explanation-text"></p>
+      </section>
+    </div>
+
+    <footer class="disclaimer">
+      Đây không phải lời khuyên đầu tư. Chỉ mang tính tham khảo nghiên cứu.
+    </footer>
+  </div>
+
+  <script src="/static/js/app.js"></script>
+</body>
+</html>

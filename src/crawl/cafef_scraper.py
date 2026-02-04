@@ -12,8 +12,8 @@ def fetch_price_cafef(
     symbol: str, 
     start_date: str, 
     end_date: str,
-    page_size: int = 1000,
-    timeout: int = 30
+    page_size: int = 3000,
+    timeout: int = 30,
 ) -> pd.DataFrame:
     """
     Fetch historical price data from CafeF API.

@@ -1,798 +1,1109 @@
-# 📊 BASELINE MODELS CHO TIME SERIES
+# Baseline Models cho Time Series
 ## ARIMA, GARCH và Linear Models - Nền tảng để so sánh
 
 ---
 
-## 📚 MỤC LỤC
+## Mục lục
 
-1. [Tại sao cần Baseline?](#1-tại-sao-cần-baseline)
-2. [Linear Regression](#2-linear-regression)
-3. [ARIMA Models](#3-arima-models)
-4. [GARCH Models](#4-garch-models)
-5. [Naive Forecasting](#5-naive-forecasting)
-6. [So sánh các Baselines](#6-so-sánh-các-baselines)
-7. [Bài tập thực hành](#7-bài-tập-thực-hành)
-
----
-
-## 1. TẠI SAO CẦN BASELINE?
-
-### 🎯 Baseline là gì?
-
-> **Baseline = Model đơn giản nhất để so sánh**
-
-**Mục đích:**
-- Đo lường xem model phức tạp có thực sự tốt hơn không
-- Tránh "overkill" (dùng model phức tạp cho bài toán đơn giản)
-- Hiểu được data trước khi dùng deep learning
-
-### 📊 Ví dụ thực tế
-
-**Tình huống:**
-```
-Bạn: "Tôi dùng LSTM dự đoán FPT, MSE = 5.0"
-Reviewer: "So với baseline?"
-Bạn: "Ừm... chưa có baseline..."
-Reviewer: "Nếu chỉ dự đoán = giá hôm qua, MSE = 3.0"
-→ LSTM của bạn còn tệ hơn baseline! ❌
-```
-
-**Đúng cách:**
-```
-Bạn: "Baseline (Naive) MSE = 5.0"
-Bạn: "Linear Regression MSE = 4.2"
-Bạn: "ARIMA MSE = 3.8"
-Bạn: "LSTM MSE = 2.5"
-→ LSTM tốt hơn baseline 50%! ✅
-```
-
-### 💡 Quy tắc vàng
-
-> **LUÔN LUÔN implement baseline trước khi làm model phức tạp!**
+1. [Tại sao Baseline quan trọng trong Research?](#1-tại-sao-baseline-quan-trọng-trong-research)
+2. [So sánh Baseline vs ML vs DL công bằng](#2-so-sánh-baseline-vs-ml-vs-dl-công-bằng)
+3. [Rolling vs Expanding Baselines](#3-rolling-vs-expanding-baselines)
+4. [Linear Regression](#4-linear-regression)
+5. [ARIMA Models](#5-arima-models)
+6. [GARCH Models](#6-garch-models)
+7. [Naive Forecasting](#7-naive-forecasting)
+8. [Baselines cho Classification](#8-baselines-cho-classification)
+9. [Statistical Significance Testing](#9-statistical-significance-testing)
+10. [Bài tập thực hành](#10-bài-tập-thực-hành)
 
 ---
 
-## 2. LINEAR REGRESSION
+## 1. TẠI SAO BASELINE QUAN TRỌNG TRONG RESEARCH?
 
-### 🎯 Linear Regression cho Time Series
+### 1.1. Baseline trong Scientific Method
 
-**Ý tưởng:**
+**Baseline không chỉ là "model đơn giản":**
+```
+Baseline = Hypothesis về performance tối thiểu mà model phức tạp phải beat
+
+Không có baseline → Không có cách đo lường "improvement"
+                  → Không biết model có thực sự "học" được gì không
+                  → Kết quả không có ý nghĩa khoa học
+```
+
+### 1.2. Tại sao Baseline critical?
+
+**1. Prevent Overfitting to Complexity:**
+```
+Tình huống thực tế:
+- Team A: "LSTM đạt MAE = 2.5!"
+- Team B: "Nhưng Naive baseline MAE = 2.3..."
+- Team A: "..."
+
+→ LSTM của Team A không học được gì cả!
+→ Chỉ memorize training data
+```
+
+**2. Establish Lower Bound:**
+```
+Baseline đặt "floor" cho performance:
+
+Naive baseline:     MAE = 5.0    (floor)
+Linear Regression:  MAE = 4.2    (baseline)
+XGBoost:           MAE = 3.5    (+19% vs LR)
+LSTM:              MAE = 3.0    (+29% vs LR)
+
+→ Mỗi bước improvement có reference rõ ràng
+```
+
+**3. Detect Data Leakage:**
+```
+Dấu hiệu data leakage:
+- Model phức tạp beat baseline quá nhiều (>50%)
+- Test performance tốt hơn validation
+- Kết quả "too good to be true"
+
+Baseline giúp detect:
+- Naive MAE = 5.0
+- Model MAE = 0.5  ← Suspicious! 10x better?
+→ Check for lookahead bias!
+```
+
+**4. Scientific Reproducibility:**
+```
+Paper không có baseline → Không reproducible
+Reviewer sẽ reject vì:
+- "So với gì?"
+- "Improvement có significant không?"
+- "Có thể chỉ là random variance"
+```
+
+### 1.3. Hierarchy of Baselines
+
+```
+Level 0: Trivial Baselines (MUST BEAT)
+├── Naive (predict last value)
+├── Historical Mean
+└── Random prediction
+
+Level 1: Simple Models (SHOULD BEAT)
+├── Moving Average
+├── Exponential Smoothing
+└── Linear Regression
+
+Level 2: Statistical Models (STANDARD COMPARISON)
+├── ARIMA/SARIMA
+├── GARCH (for volatility)
+└── VAR (for multivariate)
+
+Level 3: Machine Learning (FAIR COMPARISON)
+├── XGBoost/LightGBM
+├── Random Forest
+└── Ridge/Lasso Regression
+
+Level 4: Deep Learning (YOUR MODEL)
+├── LSTM/GRU
+├── Transformer
+└── Novel architectures
+
+RULE: Model ở Level N phải beat Level N-1
+```
+
+### 1.4. Research-Grade Checklist
+
+```
+□ Implement ít nhất 3 baselines (different levels)
+□ Report metrics cho TẤT CẢ baselines, không chỉ best
+□ Statistical significance tests
+□ Multiple random seeds
+□ Cross-validation hoặc walk-forward
+□ Ablation study (what contributes to improvement?)
+```
+
+---
+
+## 2. SO SÁNH BASELINE VS ML VS DL CÔNG BẰNG
+
+### 2.1. Unfair Comparison (Phổ biến nhưng SAI)
+
+**Các lỗi thường gặp:**
+
+**1. Data Leakage cho DL, không cho Baseline:**
+```python
+# SAI: Baseline không được scale đúng
+# Baseline: dùng raw data
+baseline_pred = naive_forecast(raw_data)
+
+# DL: được scale với toàn bộ data
+scaler.fit(all_data)  # ← Leak!
+dl_pred = lstm.predict(scaled_data)
+
+# → Comparison không fair!
+```
+
+**2. Hyperparameter Tuning không đều:**
+```python
+# SAI: DL được tune kỹ, baseline mặc định
+# Baseline: mặc định
+arima = ARIMA(order=(1,1,1))  # No tuning
+
+# DL: tune 100 configurations
+lstm = tune_hyperparameters(lstm, 100_configs)  # Heavy tuning
+
+# → Comparison không fair!
+```
+
+**3. Different Test Sets:**
+```python
+# SAI: Test sets khác nhau
+baseline_mse = evaluate(baseline, test_set_1)
+dl_mse = evaluate(dl_model, test_set_2)  # Different!
+
+# → Comparison không fair!
+```
+
+### 2.2. Fair Comparison Protocol
+
+**Protocol đúng:**
+
+```python
+def fair_comparison_protocol(data, models_config):
+    """
+    Fair comparison between Baseline, ML, and DL models
+    """
+    results = []
+    
+    # 1. SAME data split for all models
+    train, val, test = time_series_split(data, ratios=[0.7, 0.15, 0.15])
+    
+    # 2. SAME preprocessing pipeline
+    scaler = StandardScaler()
+    scaler.fit(train)  # Fit ONLY on train
+    
+    train_scaled = scaler.transform(train)
+    val_scaled = scaler.transform(val)
+    test_scaled = scaler.transform(test)
+    
+    # 3. SAME hyperparameter tuning budget (optional but fair)
+    tuning_budget = 50  # Same for all
+    
+    # 4. Train and evaluate EACH model
+    for model_name, model_class in models_config.items():
+        print(f"\n=== {model_name} ===")
+        
+        # Tune (if applicable)
+        if hasattr(model_class, 'tune'):
+            model = model_class.tune(train_scaled, val_scaled, budget=tuning_budget)
+        else:
+            model = model_class()
+        
+        # Train
+        model.fit(train_scaled)
+        
+        # Predict on SAME test set
+        pred = model.predict(test_scaled)
+        
+        # Inverse transform
+        pred_original = scaler.inverse_transform(pred)
+        test_original = scaler.inverse_transform(test_scaled)
+        
+        # Evaluate with SAME metrics
+        metrics = compute_metrics(test_original, pred_original)
+        metrics['model'] = model_name
+        results.append(metrics)
+    
+    # 5. Statistical significance tests
+    results_df = pd.DataFrame(results)
+    significance = statistical_tests(results)
+    
+    return results_df, significance
+```
+
+### 2.3. Comparison Table Template
+
+**Research-grade comparison table:**
+
+```python
+def create_comparison_table(results):
+    """
+    Create publication-ready comparison table
+    """
+    table = pd.DataFrame(results)
+    
+    # Add improvement column
+    baseline_mae = table[table['model'] == 'Naive']['MAE'].values[0]
+    table['Improvement vs Naive'] = (baseline_mae - table['MAE']) / baseline_mae * 100
+    
+    # Add rank
+    table['Rank'] = table['MAE'].rank()
+    
+    # Format
+    table = table.round({
+        'MAE': 4, 
+        'RMSE': 4, 
+        'MAPE': 2,
+        'Improvement vs Naive': 1
+    })
+    
+    return table
+
+# Example output:
+"""
+| Model            | MAE    | RMSE   | MAPE   | Improvement vs Naive | Rank |
+|------------------|--------|--------|--------|---------------------|------|
+| Naive            | 0.0523 | 0.0687 | 5.23%  | 0.0%                | 5    |
+| Moving Average   | 0.0498 | 0.0654 | 4.98%  | 4.8%                | 4    |
+| ARIMA(1,1,1)     | 0.0456 | 0.0598 | 4.56%  | 12.8%               | 3    |
+| XGBoost          | 0.0412 | 0.0542 | 4.12%  | 21.2%               | 2    |
+| LSTM             | 0.0389 | 0.0512 | 3.89%  | 25.6%               | 1    |
+"""
+```
+
+### 2.4. What to Report in Paper
+
+```
+Table 1: Comparison of forecasting models on FPT stock (2020-2024)
+
+Model           | MAE (±std)      | RMSE (±std)     | p-value vs LSTM
+----------------|-----------------|-----------------|----------------
+Naive           | 5.23 (±0.42)    | 6.87 (±0.51)    | <0.001***
+Moving Average  | 4.98 (±0.38)    | 6.54 (±0.47)    | <0.001***
+ARIMA(1,1,1)    | 4.56 (±0.35)    | 5.98 (±0.44)    | 0.003**
+XGBoost         | 4.12 (±0.31)    | 5.42 (±0.40)    | 0.045*
+LSTM (ours)     | 3.89 (±0.29)    | 5.12 (±0.38)    | -
+
+Notes:
+- Results averaged over 5-fold time series cross-validation
+- *** p<0.001, ** p<0.01, * p<0.05 (Diebold-Mariano test)
+- All models use same train/test split and preprocessing
+```
+
+---
+
+## 3. ROLLING VS EXPANDING BASELINES
+
+### 3.1. Static Baseline (Bad Practice)
+
+```python
+# SAI: Train baseline 1 lần, dùng mãi
+baseline = ARIMA(train_data, order=(1,1,1))
+baseline.fit()
+
+# Predict for all test period
+all_predictions = baseline.forecast(len(test_data))
+
+# Vấn đề:
+# - Model không được update với new data
+# - Performance degrade over time
+# - Không realistic
+```
+
+### 3.2. Rolling Baseline (Realistic)
+
+**Ý tưởng:** Retrain model với fixed window size, slide theo thời gian.
+
+```
+Time: [1][2][3][4][5][6][7][8][9][10][11][12]
+
+Window 1: [████████] → Predict [9]
+Window 2:   [████████] → Predict [10]
+Window 3:     [████████] → Predict [11]
+Window 4:       [████████] → Predict [12]
+
+Train window cố định, slide theo thời gian
+```
+
+**Code:**
+```python
+def rolling_baseline(data, model_class, window_size=252, **model_params):
+    """
+    Rolling baseline with fixed window
+    
+    Args:
+        data: Full time series
+        model_class: Model class (e.g., ARIMA, LinearRegression)
+        window_size: Training window size (252 = 1 year trading days)
+    
+    Returns:
+        predictions, actuals, metrics_per_step
+    """
+    predictions = []
+    actuals = []
+    
+    for i in range(window_size, len(data) - 1):
+        # Training window
+        train = data[i - window_size:i]
+        
+        # Actual next value
+        actual = data[i + 1]
+        
+        # Train model
+        model = model_class(**model_params)
+        model.fit(train)
+        
+        # Predict 1 step ahead
+        pred = model.forecast(steps=1)[0]
+        
+        predictions.append(pred)
+        actuals.append(actual)
+    
+    return np.array(predictions), np.array(actuals)
+
+# Usage
+predictions, actuals = rolling_baseline(
+    data=df['close'],
+    model_class=ARIMA,
+    window_size=252,
+    order=(1, 1, 1)
+)
+
+mae = mean_absolute_error(actuals, predictions)
+print(f"Rolling ARIMA MAE: {mae:.4f}")
+```
+
+### 3.3. Expanding Baseline
+
+**Ý tưởng:** Training window tăng dần, dùng tất cả data quá khứ.
+
+```
+Time: [1][2][3][4][5][6][7][8][9][10][11][12]
+
+Window 1: [████████]     → Predict [9]
+Window 2: [█████████]    → Predict [10]
+Window 3: [██████████]   → Predict [11]
+Window 4: [███████████]  → Predict [12]
+
+Train window tăng dần
+```
+
+**Code:**
+```python
+def expanding_baseline(data, model_class, min_train_size=252, **model_params):
+    """
+    Expanding baseline with growing window
+    
+    Args:
+        data: Full time series
+        model_class: Model class
+        min_train_size: Minimum training samples
+    
+    Returns:
+        predictions, actuals
+    """
+    predictions = []
+    actuals = []
+    
+    for i in range(min_train_size, len(data) - 1):
+        # Training window: from start to current
+        train = data[:i]
+        
+        # Actual next value
+        actual = data[i + 1]
+        
+        # Train model
+        model = model_class(**model_params)
+        model.fit(train)
+        
+        # Predict 1 step ahead
+        pred = model.forecast(steps=1)[0]
+        
+        predictions.append(pred)
+        actuals.append(actual)
+    
+    return np.array(predictions), np.array(actuals)
+```
+
+### 3.4. So sánh Rolling vs Expanding
+
+| Aspect | Rolling | Expanding |
+|--------|---------|-----------|
+| **Training size** | Cố định | Tăng dần |
+| **Adapt to regime** | Tốt (quên data cũ) | Kém (remember all) |
+| **Data efficiency** | Bỏ data cũ | Dùng tất cả |
+| **Computation** | Nhẹ hơn | Nặng dần |
+| **Use case** | Regime changes | Stable patterns |
+
+**Recommendation:**
+```
+Rolling:   Khi market có regime changes (bull → bear)
+Expanding: Khi pattern ổn định, cần nhiều data
+
+Best practice: Test CẢ HAI và report cả hai
+```
+
+### 3.5. Complete Rolling Evaluation
+
+```python
+def complete_rolling_evaluation(data, models_config, window_size=252):
+    """
+    Evaluate multiple models with rolling window
+    """
+    results = {name: {'preds': [], 'actuals': []} for name in models_config}
+    
+    for i in range(window_size, len(data) - 1):
+        train = data[i - window_size:i]
+        actual = data[i + 1]
+        
+        for name, model_class in models_config.items():
+            model = model_class()
+            model.fit(train)
+            pred = model.predict(1)[0]
+            
+            results[name]['preds'].append(pred)
+            results[name]['actuals'].append(actual)
+    
+    # Compute metrics
+    metrics = []
+    for name in models_config:
+        preds = np.array(results[name]['preds'])
+        actuals = np.array(results[name]['actuals'])
+        
+        metrics.append({
+            'Model': name,
+            'MAE': mean_absolute_error(actuals, preds),
+            'RMSE': np.sqrt(mean_squared_error(actuals, preds)),
+            'N_predictions': len(preds)
+        })
+    
+    return pd.DataFrame(metrics)
+```
+
+---
+
+## 4. LINEAR REGRESSION
+
+### 4.1. Linear Regression cho Time Series
+
+**Công thức:**
 ```
 price_tomorrow = w1×close_today + w2×ma20 + w3×rsi + w4×macd + b
 ```
 
-**Ưu điểm:**
-- Đơn giản, nhanh
-- Dễ interpret (xem weights)
-- Baseline tốt
-
-**Nhược điểm:**
-- Giả định linear relationship
-- Không capture được non-linear patterns
-
-### 🔧 Implementation
-
-**Bước 1: Chuẩn bị data**
+**Code:**
 ```python
-import pandas as pd
-import numpy as np
-from sklearn.linear_model import LinearRegression
+from sklearn.linear_model import LinearRegression, Ridge, Lasso
 from sklearn.metrics import mean_squared_error, mean_absolute_error
+import numpy as np
+import pandas as pd
 
-# Load features
-df = pd.read_csv('data/features/vn30/FPT.csv')
-df['date'] = pd.to_datetime(df['date'])
-df = df.sort_values('date')
-
-# Chọn features
+# Chuẩn bị data
 feature_cols = ['close', 'ma_20', 'rsi_14', 'macd', 'volatility_20']
 X = df[feature_cols]
-
-# Target: giá ngày mai
-y = df['close'].shift(-1)
+y = df['close'].shift(-1)  # Target: giá ngày mai
 
 # Drop NaN
 data = pd.concat([X, y.rename('target')], axis=1).dropna()
 X = data[feature_cols]
 y = data['target']
 
-# Train/test split (80/20)
+# Train/test split (theo thời gian)
 split_idx = int(len(X) * 0.8)
 X_train, X_test = X[:split_idx], X[split_idx:]
 y_train, y_test = y[:split_idx], y[split_idx:]
 
-print(f"Training samples: {len(X_train)}")
-print(f"Test samples: {len(X_test)}")
-```
-
-**Bước 2: Train model**
-```python
-# Create and train model
+# Train
 model = LinearRegression()
 model.fit(X_train, y_train)
 
-# Predictions
-y_pred_train = model.predict(X_train)
-y_pred_test = model.predict(X_test)
+# Evaluate
+y_pred = model.predict(X_test)
+mae = mean_absolute_error(y_test, y_pred)
+rmse = np.sqrt(mean_squared_error(y_test, y_pred))
 
-print("\nModel trained!")
-print(f"Intercept: {model.intercept_:.2f}")
-print("\nCoefficients:")
-for feat, coef in zip(feature_cols, model.coef_):
-    print(f"  {feat}: {coef:.4f}")
+print(f"Linear Regression MAE: {mae:.4f}")
+print(f"Linear Regression RMSE: {rmse:.4f}")
 ```
 
-**Bước 3: Evaluate**
+### 4.2. Regularized Versions
+
 ```python
-# Training metrics
-train_mse = mean_squared_error(y_train, y_pred_train)
-train_mae = mean_absolute_error(y_train, y_pred_train)
-train_rmse = np.sqrt(train_mse)
+# Ridge (L2 regularization)
+ridge = Ridge(alpha=1.0)
+ridge.fit(X_train, y_train)
 
-# Test metrics
-test_mse = mean_squared_error(y_test, y_pred_test)
-test_mae = mean_absolute_error(y_test, y_pred_test)
-test_rmse = np.sqrt(test_mse)
+# Lasso (L1 regularization - sparse)
+lasso = Lasso(alpha=0.1)
+lasso.fit(X_train, y_train)
 
-print("\n=== EVALUATION ===")
-print(f"Training MSE:  {train_mse:.2f}")
-print(f"Training RMSE: {train_rmse:.2f}")
-print(f"Training MAE:  {train_mae:.2f}")
-print()
-print(f"Test MSE:  {test_mse:.2f}")
-print(f"Test RMSE: {test_rmse:.2f}")
-print(f"Test MAE:  {test_mae:.2f}")
-```
-
-**Bước 4: Visualize**
-```python
-import matplotlib.pyplot as plt
-
-plt.figure(figsize=(14, 6))
-
-# Training predictions
-plt.subplot(1, 2, 1)
-plt.plot(y_train.values, label='Actual', alpha=0.7)
-plt.plot(y_pred_train, label='Predicted', alpha=0.7)
-plt.title(f'Training Set (MSE={train_mse:.2f})')
-plt.xlabel('Days')
-plt.ylabel('Price')
-plt.legend()
-
-# Test predictions
-plt.subplot(1, 2, 2)
-plt.plot(y_test.values, label='Actual', alpha=0.7)
-plt.plot(y_pred_test, label='Predicted', alpha=0.7)
-plt.title(f'Test Set (MSE={test_mse:.2f})')
-plt.xlabel('Days')
-plt.ylabel('Price')
-plt.legend()
-
-plt.tight_layout()
-plt.savefig('linear_regression_results.png', dpi=300)
-plt.show()
-```
-
-### 💡 Interpret Results
-
-**Feature Importance (từ coefficients):**
-```python
-# Sắp xếp features theo importance
-feature_importance = pd.DataFrame({
-    'feature': feature_cols,
-    'coefficient': model.coef_,
-    'abs_coefficient': np.abs(model.coef_)
-}).sort_values('abs_coefficient', ascending=False)
-
-print("\nFeature Importance:")
-print(feature_importance)
-
-# Visualize
-plt.figure(figsize=(10, 6))
-plt.barh(feature_importance['feature'], feature_importance['coefficient'])
-plt.xlabel('Coefficient')
-plt.title('Feature Importance (Linear Regression)')
-plt.tight_layout()
-plt.savefig('feature_importance.png', dpi=300)
-plt.show()
+# Compare coefficients
+print("Feature Importance:")
+for feat, lr_coef, ridge_coef, lasso_coef in zip(
+    feature_cols, model.coef_, ridge.coef_, lasso.coef_
+):
+    print(f"  {feat}: LR={lr_coef:.4f}, Ridge={ridge_coef:.4f}, Lasso={lasso_coef:.4f}")
 ```
 
 ---
 
-## 3. ARIMA MODELS
+## 5. ARIMA MODELS
 
-### 🤔 ARIMA là gì?
-
-**ARIMA = AutoRegressive Integrated Moving Average**
-
-**Phân tích từng phần:**
-- **AR (AutoRegressive):** Dùng giá trị quá khứ để dự đoán
-- **I (Integrated):** Differencing để làm stationary
-- **MA (Moving Average):** Dùng errors quá khứ để dự đoán
-
-### 📐 ARIMA(p, d, q)
-
-**p (AR order):**
-- Số lags của giá trị quá khứ
-- Ví dụ: p=2 → dùng t-1 và t-2
-
-**d (Differencing order):**
-- Số lần differencing
-- d=0: Không differencing
-- d=1: First difference (price[t] - price[t-1])
-- d=2: Second difference
-
-**q (MA order):**
-- Số lags của errors quá khứ
-- Ví dụ: q=1 → dùng error tại t-1
-
-### 🎯 Ví dụ: ARIMA(1,1,1)
+### 5.1. ARIMA(p, d, q)
 
 **Công thức:**
 ```
-Δy(t) = c + φ₁×Δy(t-1) + θ₁×ε(t-1) + ε(t)
- ↑       ↑    ↑           ↑
- Diff  Const  AR(1)       MA(1)
+ARIMA = AR(p) + I(d) + MA(q)
 
-Trong đó:
-- Δy(t) = y(t) - y(t-1) (first difference)
-- φ₁: AR coefficient
-- θ₁: MA coefficient
-- ε(t): Error tại thời điểm t
+- p: AutoRegressive order (dùng p lags của y)
+- d: Differencing order (làm stationary)
+- q: Moving Average order (dùng q lags của error)
 ```
 
-### 🔧 Implementation
-
-**Bước 1: Kiểm tra Stationarity**
+**Code:**
 ```python
+from statsmodels.tsa.arima.model import ARIMA
 from statsmodels.tsa.stattools import adfuller
-
-def check_stationarity(series, name='Series'):
-    """
-    Kiểm tra stationarity bằng ADF test
-    """
-    result = adfuller(series.dropna())
-    
-    print(f"\n=== ADF Test for {name} ===")
-    print(f"ADF Statistic: {result[0]:.4f}")
-    print(f"p-value: {result[1]:.4f}")
-    print(f"Critical Values:")
-    for key, value in result[4].items():
-        print(f"  {key}: {value:.4f}")
-    
-    if result[1] < 0.05:
-        print("→ STATIONARY (p-value < 0.05)")
-    else:
-        print("→ NON-STATIONARY (p-value >= 0.05)")
-    
-    return result[1] < 0.05
-
-# Kiểm tra price
-is_stationary_price = check_stationarity(df['close'], 'Price')
-
-# Kiểm tra returns
-df['returns'] = df['close'].pct_change()
-is_stationary_returns = check_stationarity(df['returns'], 'Returns')
-```
-
-**Bước 2: Chọn p, d, q**
-
-**Cách 1: Auto ARIMA**
-```python
 from pmdarima import auto_arima
 
-# Auto ARIMA sẽ tự động tìm p, d, q tốt nhất
-model = auto_arima(
+# 1. Check stationarity
+result = adfuller(df['close'].dropna())
+print(f"ADF p-value: {result[1]:.4f}")
+print(f"Stationary: {result[1] < 0.05}")
+
+# 2. Auto ARIMA để tìm p, d, q
+auto_model = auto_arima(
     df['close'],
     start_p=0, max_p=5,
     start_q=0, max_q=5,
-    d=None,  # Tự động tìm d
+    d=None,
     seasonal=False,
-    trace=True,  # In ra quá trình tìm kiếm
-    error_action='ignore',
-    suppress_warnings=True,
-    stepwise=True
+    trace=True,
+    suppress_warnings=True
 )
+print(f"Best order: {auto_model.order}")
 
-print(f"\nBest model: ARIMA{model.order}")
-print(model.summary())
+# 3. Train ARIMA
+train = df['close'][:split_idx]
+test = df['close'][split_idx:]
+
+model = ARIMA(train, order=auto_model.order)
+fitted = model.fit()
+print(fitted.summary())
+
+# 4. Forecast
+forecast = fitted.forecast(steps=len(test))
+mae = mean_absolute_error(test, forecast)
+print(f"ARIMA MAE: {mae:.4f}")
 ```
-
-**Cách 2: Manual (dùng ACF/PACF)**
-```python
-from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
-
-fig, axes = plt.subplots(2, 1, figsize=(12, 8))
-
-# ACF plot (để chọn q)
-plot_acf(df['returns'].dropna(), lags=20, ax=axes[0])
-axes[0].set_title('ACF Plot')
-
-# PACF plot (để chọn p)
-plot_pacf(df['returns'].dropna(), lags=20, ax=axes[1])
-axes[1].set_title('PACF Plot')
-
-plt.tight_layout()
-plt.show()
-
-# Quy tắc:
-# - Nếu ACF cuts off sau lag q → MA(q)
-# - Nếu PACF cuts off sau lag p → AR(p)
-# - Nếu cả 2 đều decay dần → ARMA(p,q)
-```
-
-**Bước 3: Train ARIMA**
-```python
-from statsmodels.tsa.arima.model import ARIMA
-
-# Split data
-train_size = int(len(df) * 0.8)
-train = df['close'][:train_size]
-test = df['close'][train_size:]
-
-# Train ARIMA(1,1,1)
-model = ARIMA(train, order=(1, 1, 1))
-model_fit = model.fit()
-
-print(model_fit.summary())
-```
-
-**Bước 4: Forecast**
-```python
-# Forecast test period
-forecast = model_fit.forecast(steps=len(test))
-
-# Metrics
-test_mse = mean_squared_error(test, forecast)
-test_mae = mean_absolute_error(test, forecast)
-test_rmse = np.sqrt(test_mse)
-
-print(f"\n=== ARIMA EVALUATION ===")
-print(f"Test MSE:  {test_mse:.2f}")
-print(f"Test RMSE: {test_rmse:.2f}")
-print(f"Test MAE:  {test_mae:.2f}")
-
-# Visualize
-plt.figure(figsize=(14, 6))
-plt.plot(train.index, train, label='Training', alpha=0.7)
-plt.plot(test.index, test, label='Actual Test', alpha=0.7)
-plt.plot(test.index, forecast, label='ARIMA Forecast', alpha=0.7)
-plt.title(f'ARIMA(1,1,1) Forecast (MSE={test_mse:.2f})')
-plt.xlabel('Date')
-plt.ylabel('Price')
-plt.legend()
-plt.tight_layout()
-plt.savefig('arima_forecast.png', dpi=300)
-plt.show()
-```
-
-### 💡 Khi nào dùng ARIMA?
-
-**Dùng khi:**
-- Data có autocorrelation mạnh
-- Muốn model đơn giản, interpret được
-- Dự đoán ngắn hạn (1-7 ngày)
-
-**KHÔNG dùng khi:**
-- Data có nhiều external factors (news, events)
-- Cần dự đoán dài hạn (>1 tháng)
-- Data có non-linear patterns phức tạp
 
 ---
 
-## 4. GARCH MODELS
+## 6. GARCH MODELS
 
-### 🤔 GARCH là gì?
+### 6.1. GARCH cho Volatility
 
-**GARCH = Generalized AutoRegressive Conditional Heteroskedasticity**
+**GARCH dự đoán VOLATILITY, không dự đoán price.**
 
-**Mục đích:**
-- Dự đoán **VOLATILITY** (độ biến động)
-- KHÔNG dự đoán giá trực tiếp
-
-**Tại sao quan trọng?**
-- Volatility cao = Rủi ro cao
-- Volatility clustering: Biến động lớn thường theo sau biến động lớn
-- Quan trọng cho risk management
-
-### 📐 GARCH(1,1)
-
-**Công thức:**
-```
-σ²(t) = ω + α×ε²(t-1) + β×σ²(t-1)
- ↑       ↑    ↑           ↑
-Vol(t) Const Error(t-1)  Vol(t-1)
-
-Trong đó:
-- σ²(t): Variance (volatility²) tại thời điểm t
-- ε²(t-1): Squared error tại t-1
-- α: ARCH coefficient
-- β: GARCH coefficient
-```
-
-**Ý nghĩa:**
-- α cao: Shocks ảnh hưởng mạnh đến volatility
-- β cao: Volatility persistence (biến động kéo dài)
-- α + β ≈ 1: Volatility rất persistent
-
-### 🔧 Implementation
-
-**Bước 1: Chuẩn bị returns**
+**Code:**
 ```python
 from arch import arch_model
 
-# Tính returns (%)
-df['returns'] = df['close'].pct_change() * 100
-returns = df['returns'].dropna()
+# Returns (%)
+returns = df['close'].pct_change().dropna() * 100
 
-# Split
-train_size = int(len(returns) * 0.8)
-train_returns = returns[:train_size]
-test_returns = returns[train_size:]
+# Train GARCH(1,1)
+model = arch_model(returns, vol='Garch', p=1, q=1)
+fitted = model.fit(disp='off')
+print(fitted.summary())
 
-print(f"Training samples: {len(train_returns)}")
-print(f"Test samples: {len(test_returns)}")
-```
+# Forecast volatility
+forecast = fitted.forecast(horizon=30)
+predicted_vol = np.sqrt(forecast.variance.values[-1, :])
 
-**Bước 2: Train GARCH**
-```python
-# Define GARCH(1,1) model
-model = arch_model(
-    train_returns,
-    vol='Garch',  # GARCH model
-    p=1,          # GARCH order
-    q=1           # ARCH order
-)
-
-# Fit model
-model_fit = model.fit(disp='off')
-print(model_fit.summary())
-```
-
-**Bước 3: Forecast Volatility**
-```python
-# Forecast
-forecast = model_fit.forecast(horizon=len(test_returns))
-
-# Extract forecasted variance
-forecast_variance = forecast.variance.values[-1, :]
-forecast_volatility = np.sqrt(forecast_variance)
-
-# Actual volatility (rolling std)
-actual_volatility = test_returns.rolling(window=20).std()
-
-# Metrics
-vol_mse = mean_squared_error(
-    actual_volatility.dropna(),
-    forecast_volatility[:len(actual_volatility.dropna())]
-)
-
-print(f"\n=== GARCH EVALUATION ===")
-print(f"Volatility MSE: {vol_mse:.4f}")
-```
-
-**Bước 4: Visualize**
-```python
-plt.figure(figsize=(14, 8))
-
-# Returns
-plt.subplot(2, 1, 1)
-plt.plot(test_returns.index, test_returns, label='Returns', alpha=0.5)
-plt.title('Test Returns')
-plt.ylabel('Returns (%)')
-plt.legend()
-
-# Volatility
-plt.subplot(2, 1, 2)
-plt.plot(actual_volatility.index, actual_volatility, 
-         label='Actual Volatility (Rolling Std)', alpha=0.7)
-plt.plot(test_returns.index[:len(forecast_volatility)], forecast_volatility, 
-         label='GARCH Forecast', alpha=0.7)
-plt.title('Volatility Forecast')
-plt.ylabel('Volatility (%)')
-plt.xlabel('Date')
-plt.legend()
-
-plt.tight_layout()
-plt.savefig('garch_forecast.png', dpi=300)
-plt.show()
-```
-
-### 💡 Khi nào dùng GARCH?
-
-**Dùng khi:**
-- Cần dự đoán volatility/risk
-- Data có volatility clustering
-- Risk management, option pricing
-
-**KHÔNG dùng khi:**
-- Cần dự đoán giá trực tiếp (dùng ARIMA hoặc ML)
-
----
-
-## 5. NAIVE FORECASTING
-
-### 🎯 Naive Methods
-
-**Đơn giản nhưng hiệu quả!**
-
-#### **1. Naive Forecast (Last Value)**
-
-**Công thức:**
-```
-ŷ(t+1) = y(t)
-
-Ví dụ:
-Giá hôm nay: 100
-Dự đoán ngày mai: 100
-```
-
-**Code:**
-```python
-def naive_forecast(train, test):
-    """
-    Naive forecast: Dự đoán = giá trị cuối cùng của training
-    """
-    forecast = np.full(len(test), train.iloc[-1])
-    return forecast
-
-# Evaluate
-forecast = naive_forecast(train, test)
-mse = mean_squared_error(test, forecast)
-print(f"Naive MSE: {mse:.2f}")
-```
-
-#### **2. Seasonal Naive**
-
-**Công thức:**
-```
-ŷ(t+1) = y(t-m)
-
-Trong đó m = seasonal period
-
-Ví dụ (weekly seasonality, m=5):
-Dự đoán Thứ 2 tuần này = Thứ 2 tuần trước
-```
-
-**Code:**
-```python
-def seasonal_naive_forecast(train, test, period=5):
-    """
-    Seasonal naive: Dự đoán = giá trị cùng kỳ trước
-    """
-    forecast = []
-    for i in range(len(test)):
-        if i < period:
-            # Dùng giá trị từ training
-            forecast.append(train.iloc[-(period-i)])
-        else:
-            # Dùng giá trị từ test
-            forecast.append(forecast[i-period])
-    return np.array(forecast)
-```
-
-#### **3. Moving Average**
-
-**Công thức:**
-```
-ŷ(t+1) = (y(t) + y(t-1) + ... + y(t-k+1)) / k
-
-Ví dụ (k=5):
-Dự đoán ngày mai = Trung bình 5 ngày gần nhất
-```
-
-**Code:**
-```python
-def moving_average_forecast(train, test, window=5):
-    """
-    Moving average forecast
-    """
-    forecast = []
-    history = list(train[-window:])
-    
-    for i in range(len(test)):
-        # Dự đoán = trung bình window gần nhất
-        pred = np.mean(history)
-        forecast.append(pred)
-        
-        # Update history với actual value
-        history.append(test.iloc[i])
-        history.pop(0)
-    
-    return np.array(forecast)
+print(f"30-day volatility forecast: {predicted_vol}")
 ```
 
 ---
 
-## 6. SO SÁNH CÁC BASELINES
+## 7. NAIVE FORECASTING
 
-### 📊 Benchmark Template
+### 7.1. Naive Baselines
 
 ```python
-import pandas as pd
-from sklearn.metrics import mean_squared_error, mean_absolute_error
+def naive_last_value(train, test):
+    """Predict = last value"""
+    return np.full(len(test), train.iloc[-1])
+
+def naive_mean(train, test):
+    """Predict = historical mean"""
+    return np.full(len(test), train.mean())
+
+def naive_drift(train, test):
+    """Predict = last value + average change"""
+    avg_change = (train.iloc[-1] - train.iloc[0]) / (len(train) - 1)
+    return train.iloc[-1] + avg_change * np.arange(1, len(test) + 1)
+
+def seasonal_naive(train, test, period=5):
+    """Predict = value from same period last cycle"""
+    forecast = []
+    combined = pd.concat([train, test])
+    for i in range(len(train), len(combined)):
+        forecast.append(combined.iloc[i - period])
+    return np.array(forecast)
+
+# Evaluate all naive methods
+for name, func in [
+    ('Naive (Last)', naive_last_value),
+    ('Naive (Mean)', naive_mean),
+    ('Naive (Drift)', naive_drift),
+]:
+    pred = func(train, test)
+    mae = mean_absolute_error(test, pred)
+    print(f"{name}: MAE = {mae:.4f}")
+```
+
+---
+
+## 8. BASELINES CHO CLASSIFICATION
+
+### 8.1. Tại sao cần Classification Baselines?
+
+**Classification tasks trong trading:**
+- Dự đoán Up/Down
+- Dự đoán Strong Up/Weak Up/Flat/Weak Down/Strong Down
+- Trading signals (Buy/Hold/Sell)
+
+### 8.2. Classification Baselines
+
+**1. Random Baseline:**
+```python
 import numpy as np
+from sklearn.metrics import accuracy_score, f1_score, classification_report
 
-def evaluate_model(name, y_true, y_pred):
+def random_baseline(y_train, y_test):
+    """Random prediction based on class distribution"""
+    classes, counts = np.unique(y_train, return_counts=True)
+    probs = counts / len(y_train)
+    predictions = np.random.choice(classes, size=len(y_test), p=probs)
+    return predictions
+
+# Usage
+y_pred_random = random_baseline(y_train, y_test)
+print(f"Random Accuracy: {accuracy_score(y_test, y_pred_random):.4f}")
+```
+
+**2. Majority Class Baseline:**
+```python
+def majority_baseline(y_train, y_test):
+    """Always predict the most frequent class"""
+    majority_class = y_train.value_counts().idxmax()
+    return np.full(len(y_test), majority_class)
+
+y_pred_majority = majority_baseline(y_train, y_test)
+print(f"Majority Accuracy: {accuracy_score(y_test, y_pred_majority):.4f}")
+```
+
+**3. Stratified Random Baseline:**
+```python
+from sklearn.dummy import DummyClassifier
+
+# Stratified random
+dummy_stratified = DummyClassifier(strategy='stratified')
+dummy_stratified.fit(X_train, y_train)
+y_pred_stratified = dummy_stratified.predict(X_test)
+print(f"Stratified Accuracy: {accuracy_score(y_test, y_pred_stratified):.4f}")
+```
+
+**4. Prior Day Momentum Baseline:**
+```python
+def momentum_baseline(returns_series):
     """
-    Evaluate and return metrics
+    Predict: If yesterday was up, today will be up
     """
-    mse = mean_squared_error(y_true, y_pred)
-    mae = mean_absolute_error(y_true, y_pred)
-    rmse = np.sqrt(mse)
-    mape = np.mean(np.abs((y_true - y_pred) / y_true)) * 100
+    yesterday = returns_series.shift(1)
+    predictions = (yesterday > 0).astype(int)  # 1=Up, 0=Down
+    return predictions
+
+y_pred_momentum = momentum_baseline(df['return'])
+actuals = (df['return'] > 0).astype(int)
+print(f"Momentum Accuracy: {accuracy_score(actuals[1:], y_pred_momentum[1:]):.4f}")
+```
+
+**5. Mean-Reversion Baseline:**
+```python
+def mean_reversion_baseline(returns_series):
+    """
+    Predict: If yesterday was up, today will be down (contrarian)
+    """
+    yesterday = returns_series.shift(1)
+    predictions = (yesterday < 0).astype(int)  # Opposite of momentum
+    return predictions
+
+y_pred_mr = mean_reversion_baseline(df['return'])
+print(f"Mean-Reversion Accuracy: {accuracy_score(actuals[1:], y_pred_mr[1:]):.4f}")
+```
+
+### 8.3. Complete Classification Baseline Comparison
+
+```python
+def classification_baseline_comparison(X_train, X_test, y_train, y_test):
+    """
+    Compare all classification baselines
+    """
+    from sklearn.dummy import DummyClassifier
+    from sklearn.linear_model import LogisticRegression
     
-    return {
-        'Model': name,
-        'MSE': mse,
-        'RMSE': rmse,
-        'MAE': mae,
-        'MAPE': mape
+    results = []
+    
+    # 1. Random
+    dummy_random = DummyClassifier(strategy='uniform')
+    dummy_random.fit(X_train, y_train)
+    y_pred = dummy_random.predict(X_test)
+    results.append({
+        'Model': 'Random',
+        'Accuracy': accuracy_score(y_test, y_pred),
+        'F1': f1_score(y_test, y_pred, average='weighted')
+    })
+    
+    # 2. Majority
+    dummy_majority = DummyClassifier(strategy='most_frequent')
+    dummy_majority.fit(X_train, y_train)
+    y_pred = dummy_majority.predict(X_test)
+    results.append({
+        'Model': 'Majority Class',
+        'Accuracy': accuracy_score(y_test, y_pred),
+        'F1': f1_score(y_test, y_pred, average='weighted')
+    })
+    
+    # 3. Stratified
+    dummy_strat = DummyClassifier(strategy='stratified')
+    dummy_strat.fit(X_train, y_train)
+    y_pred = dummy_strat.predict(X_test)
+    results.append({
+        'Model': 'Stratified Random',
+        'Accuracy': accuracy_score(y_test, y_pred),
+        'F1': f1_score(y_test, y_pred, average='weighted')
+    })
+    
+    # 4. Logistic Regression (simple model baseline)
+    lr = LogisticRegression(max_iter=1000)
+    lr.fit(X_train, y_train)
+    y_pred = lr.predict(X_test)
+    results.append({
+        'Model': 'Logistic Regression',
+        'Accuracy': accuracy_score(y_test, y_pred),
+        'F1': f1_score(y_test, y_pred, average='weighted')
+    })
+    
+    return pd.DataFrame(results).sort_values('F1', ascending=False)
+
+# Usage
+results = classification_baseline_comparison(X_train, X_test, y_train, y_test)
+print(results)
+```
+
+### 8.4. Important: Imbalanced Classes
+
+```python
+# Trong trading, classes thường imbalanced
+# Ví dụ: 52% Up, 48% Down (slightly biased)
+
+# Metric quan trọng:
+# - Accuracy có thể misleading (majority baseline đạt 52%)
+# - F1-score weighted hoặc macro
+# - ROC-AUC
+
+print("\nClass Distribution:")
+print(y_train.value_counts(normalize=True))
+
+# Nếu imbalanced, majority baseline sẽ có accuracy cao
+# Nhưng F1 và AUC sẽ thấp
+```
+
+---
+
+## 9. STATISTICAL SIGNIFICANCE TESTING
+
+### 9.1. Tại sao cần Statistical Tests?
+
+**Vấn đề:**
+```
+Model A: MAE = 4.52
+Model B: MAE = 4.48
+
+Q: Model B có thực sự tốt hơn không?
+A: Không chắc! Có thể chỉ là random variance.
+
+→ Cần statistical test để xác nhận
+```
+
+### 9.2. Diebold-Mariano Test
+
+**Diebold-Mariano Test:**
+- So sánh predictive accuracy của 2 models
+- H0: Hai models có accuracy bằng nhau
+- H1: Model B tốt hơn (hoặc khác) Model A
+
+```python
+from scipy import stats
+
+def diebold_mariano_test(actual, pred1, pred2, h=1, power=2):
+    """
+    Diebold-Mariano test for comparing two forecasts
+    
+    Args:
+        actual: Actual values
+        pred1: Predictions from model 1
+        pred2: Predictions from model 2
+        h: Forecast horizon
+        power: Power for loss function (1=MAE, 2=MSE)
+    
+    Returns:
+        DM statistic, p-value
+    """
+    # Loss differences
+    e1 = actual - pred1
+    e2 = actual - pred2
+    
+    if power == 1:
+        d = np.abs(e1) - np.abs(e2)
+    else:
+        d = e1**power - e2**power
+    
+    # Mean and variance of d
+    mean_d = np.mean(d)
+    var_d = np.var(d, ddof=1)
+    
+    # Adjust for autocorrelation in forecast errors
+    T = len(d)
+    
+    # Autocovariance adjustment for h > 1
+    if h > 1:
+        autocov = 0
+        for i in range(1, h):
+            autocov += np.cov(d[:-i], d[i:])[0, 1]
+        var_d = var_d + 2 * autocov / T
+    
+    # DM statistic
+    dm_stat = mean_d / np.sqrt(var_d / T)
+    
+    # Two-tailed p-value
+    p_value = 2 * (1 - stats.norm.cdf(np.abs(dm_stat)))
+    
+    return dm_stat, p_value
+
+# Usage
+dm_stat, p_value = diebold_mariano_test(
+    actual=y_test.values,
+    pred1=baseline_predictions,
+    pred2=lstm_predictions
+)
+
+print(f"DM Statistic: {dm_stat:.4f}")
+print(f"P-value: {p_value:.4f}")
+
+if p_value < 0.05:
+    print("→ LSTM significantly different from baseline (p < 0.05)")
+else:
+    print("→ No significant difference (p >= 0.05)")
+```
+
+### 9.3. Paired t-test for Errors
+
+```python
+def paired_ttest_errors(actual, pred1, pred2):
+    """
+    Paired t-test on absolute errors
+    """
+    errors1 = np.abs(actual - pred1)
+    errors2 = np.abs(actual - pred2)
+    
+    t_stat, p_value = stats.ttest_rel(errors1, errors2)
+    
+    return t_stat, p_value
+
+t_stat, p_value = paired_ttest_errors(y_test.values, baseline_pred, model_pred)
+print(f"Paired t-test: t={t_stat:.4f}, p={p_value:.4f}")
+```
+
+### 9.4. Bootstrap Confidence Intervals
+
+```python
+def bootstrap_confidence_interval(actual, predictions, metric_func, n_bootstrap=1000, ci=0.95):
+    """
+    Bootstrap confidence interval for a metric
+    """
+    n = len(actual)
+    metrics = []
+    
+    for _ in range(n_bootstrap):
+        # Bootstrap sample
+        idx = np.random.randint(0, n, n)
+        sample_actual = actual[idx]
+        sample_pred = predictions[idx]
+        
+        # Compute metric
+        metric = metric_func(sample_actual, sample_pred)
+        metrics.append(metric)
+    
+    # Confidence interval
+    alpha = 1 - ci
+    lower = np.percentile(metrics, alpha/2 * 100)
+    upper = np.percentile(metrics, (1 - alpha/2) * 100)
+    
+    return np.mean(metrics), lower, upper
+
+# Usage
+mean_mae, lower, upper = bootstrap_confidence_interval(
+    y_test.values,
+    model_predictions,
+    mean_absolute_error
+)
+
+print(f"MAE: {mean_mae:.4f} (95% CI: [{lower:.4f}, {upper:.4f}])")
+```
+
+### 9.5. Multiple Comparisons Correction
+
+**Khi so sánh nhiều models:**
+```python
+from statsmodels.stats.multitest import multipletests
+
+def compare_multiple_models(actual, predictions_dict, baseline_key='Naive'):
+    """
+    Compare multiple models with Bonferroni correction
+    """
+    baseline_pred = predictions_dict[baseline_key]
+    
+    p_values = []
+    model_names = []
+    
+    for name, pred in predictions_dict.items():
+        if name == baseline_key:
+            continue
+        
+        _, p_value = diebold_mariano_test(actual, baseline_pred, pred)
+        p_values.append(p_value)
+        model_names.append(name)
+    
+    # Bonferroni correction
+    reject, corrected_p, _, _ = multipletests(p_values, method='bonferroni')
+    
+    results = pd.DataFrame({
+        'Model': model_names,
+        'P-value (raw)': p_values,
+        'P-value (corrected)': corrected_p,
+        'Significant': reject
+    })
+    
+    return results
+
+# Usage
+results = compare_multiple_models(
+    actual=y_test.values,
+    predictions_dict={
+        'Naive': naive_pred,
+        'ARIMA': arima_pred,
+        'XGBoost': xgb_pred,
+        'LSTM': lstm_pred
     }
-
-# Collect results
-results = []
-
-# 1. Naive
-forecast_naive = naive_forecast(train, test)
-results.append(evaluate_model('Naive', test, forecast_naive))
-
-# 2. Moving Average
-forecast_ma = moving_average_forecast(train, test, window=5)
-results.append(evaluate_model('Moving Average (5)', test, forecast_ma))
-
-# 3. Linear Regression
-# (đã train ở trên)
-results.append(evaluate_model('Linear Regression', y_test, y_pred_test))
-
-# 4. ARIMA
-# (đã train ở trên)
-results.append(evaluate_model('ARIMA(1,1,1)', test, forecast))
-
-# Create comparison table
-comparison_df = pd.DataFrame(results)
-comparison_df = comparison_df.sort_values('MSE')
-
-print("\n=== BASELINE COMPARISON ===")
-print(comparison_df.to_string(index=False))
-
-# Visualize
-comparison_df.plot(x='Model', y=['MSE', 'MAE'], kind='bar', figsize=(10, 6))
-plt.title('Baseline Models Comparison')
-plt.ylabel('Error')
-plt.xticks(rotation=45)
-plt.tight_layout()
-plt.savefig('baseline_comparison.png', dpi=300)
-plt.show()
+)
+print(results)
 ```
 
-### 💡 Interpret Results
+### 9.6. Complete Significance Report
 
-**Ví dụ kết quả:**
+```python
+def full_significance_report(actual, predictions_dict, baseline_key='Naive'):
+    """
+    Generate complete significance report
+    """
+    print("=" * 60)
+    print("STATISTICAL SIGNIFICANCE REPORT")
+    print("=" * 60)
+    
+    baseline_pred = predictions_dict[baseline_key]
+    baseline_mae = mean_absolute_error(actual, baseline_pred)
+    
+    print(f"\nBaseline ({baseline_key}): MAE = {baseline_mae:.4f}")
+    print("\nPairwise Comparisons with Baseline:")
+    print("-" * 60)
+    
+    for name, pred in predictions_dict.items():
+        if name == baseline_key:
+            continue
+        
+        mae = mean_absolute_error(actual, pred)
+        improvement = (baseline_mae - mae) / baseline_mae * 100
+        
+        dm_stat, p_value = diebold_mariano_test(actual, baseline_pred, pred)
+        
+        # Bootstrap CI
+        mean_mae, lower, upper = bootstrap_confidence_interval(
+            actual, pred, mean_absolute_error
+        )
+        
+        print(f"\n{name}:")
+        print(f"  MAE: {mae:.4f} (95% CI: [{lower:.4f}, {upper:.4f}])")
+        print(f"  Improvement vs {baseline_key}: {improvement:.1f}%")
+        print(f"  DM Test: stat={dm_stat:.4f}, p={p_value:.4f}")
+        
+        if p_value < 0.001:
+            print("  → Highly significant (p < 0.001) ***")
+        elif p_value < 0.01:
+            print("  → Very significant (p < 0.01) **")
+        elif p_value < 0.05:
+            print("  → Significant (p < 0.05) *")
+        else:
+            print("  → Not significant (p >= 0.05)")
+
+# Usage
+full_significance_report(y_test.values, all_predictions)
 ```
-Model                 MSE    RMSE    MAE    MAPE
-Naive                 5.2    2.28    1.8    1.85%
-Moving Average (5)    4.8    2.19    1.7    1.75%
-ARIMA(1,1,1)         3.9    1.97    1.5    1.52%
-Linear Regression     3.2    1.79    1.3    1.35%
-```
-
-**Kết luận:**
-- Linear Regression tốt nhất (MSE thấp nhất)
-- ARIMA tốt hơn Naive 25%
-- Moving Average tốt hơn Naive 8%
-- Baseline đã set được "bar" cho deep learning models
 
 ---
 
-## 7. BÀI TẬP THỰC HÀNH
+## 10. BÀI TẬP THỰC HÀNH
 
-### 🎯 Bài tập 1: Implement Full Baseline Pipeline
-
-**Đề bài:**
-Implement và so sánh 4 baselines cho FPT:
-1. Naive
-2. Moving Average (window=5, 10, 20)
-3. Linear Regression
-4. ARIMA(p,d,q) - tự chọn p,d,q
+### Bài tập 1: Complete Baseline Pipeline
 
 **Yêu cầu:**
-- Train trên 80% data
-- Test trên 20% data
-- Tính MSE, MAE, RMSE, MAPE
-- Vẽ biểu đồ so sánh
-- Viết báo cáo ngắn (200-300 từ)
+1. Implement 5 baselines (Naive, MA, ARIMA, Linear, XGBoost)
+2. Rolling evaluation (window=252)
+3. Statistical significance tests
+4. Report với confidence intervals
 
-**Kiểm tra:**
-- [ ] Implement được 4 baselines
-- [ ] Tính được metrics đầy đủ
-- [ ] Vẽ được biểu đồ đẹp
-- [ ] Viết được báo cáo phân tích
-
----
-
-### 🎯 Bài tập 2: GARCH cho Volatility Forecasting
-
-**Đề bài:**
-Dùng GARCH(1,1) dự đoán volatility của FPT
+### Bài tập 2: Classification Baselines
 
 **Yêu cầu:**
-- Tính returns
-- Train GARCH(1,1)
-- Forecast volatility cho test period
-- So sánh với actual volatility (rolling std)
-- Phân tích α và β coefficients
+1. Tạo binary target (Up/Down)
+2. Implement 4 classification baselines
+3. So sánh với Logistic Regression
+4. Report Accuracy, F1, AUC
 
-**Kiểm tra:**
-- [ ] Train được GARCH
-- [ ] Forecast được volatility
-- [ ] So sánh với actual
-- [ ] Giải thích được α, β
-
----
-
-### 🎯 Bài tập 3: Feature Engineering cho Linear Regression
-
-**Đề bài:**
-Cải thiện Linear Regression bằng feature engineering
-
-**Gợi ý features:**
-- Lagged features (close_lag1, close_lag5, ...)
-- Rolling statistics (rolling_mean_5, rolling_std_10, ...)
-- Interaction features (close × ma20, rsi × volume_ratio, ...)
-- Polynomial features (close², close³, ...)
+### Bài tập 3: Fair Comparison ML vs DL
 
 **Yêu cầu:**
-- Thêm ít nhất 10 features mới
-- Train Linear Regression với features mới
-- So sánh với baseline Linear Regression
-- Phân tích feature importance
-
-**Kiểm tra:**
-- [ ] Tạo được features mới
-- [ ] Train được model
-- [ ] Cải thiện được MSE
-- [ ] Phân tích được features quan trọng
+1. Train XGBoost và LSTM
+2. SAME preprocessing cho cả hai
+3. SAME hyperparameter tuning budget
+4. Statistical significance tests
 
 ---
 
-## ✅ KIỂM TRA HIỂU BÀI
+## Kiểm tra hiểu bài
 
-Trước khi sang bài tiếp theo, hãy đảm bảo bạn:
-
-- [ ] Hiểu tại sao cần baseline models
-- [ ] Implement được Linear Regression cho time series
-- [ ] Hiểu được ARIMA(p,d,q) và cách chọn p,d,q
-- [ ] Implement được ARIMA
-- [ ] Hiểu được GARCH và khi nào dùng
-- [ ] Implement được các naive methods
-- [ ] So sánh được các baselines
-- [ ] Làm được 3 bài tập thực hành
-
-**Nếu chưa pass hết checklist, đọc lại phần tương ứng!**
+- [ ] Giải thích được tại sao baseline critical
+- [ ] Implement được fair comparison protocol
+- [ ] Phân biệt được rolling vs expanding baselines
+- [ ] Implement được classification baselines
+- [ ] Thực hiện được Diebold-Mariano test
+- [ ] Hiểu được multiple comparison correction
 
 ---
 
-## 📚 TÀI LIỆU THAM KHẢO
+## Tài liệu tham khảo
+
+**Papers:**
+- Diebold, F.X. & Mariano, R.S. (1995). "Comparing Predictive Accuracy"
+- Makridakis et al. (2020). "M4 Competition: Results, Findings, and Conclusions"
 
 **Books:**
 - "Forecasting: Principles and Practice" - Rob Hyndman
-- "Time Series Analysis and Its Applications" - Shumway & Stoffer
-
-**Papers:**
-- "Forecasting with Exponential Smoothing" - Hyndman et al.
-- "ARIMA Models and the Box-Jenkins Methodology" - Box & Jenkins
-
-**Libraries:**
-- `statsmodels`: ARIMA, SARIMAX
-- `pmdarima`: Auto ARIMA
-- `arch`: GARCH models
 
 ---
 
-## 🚀 BƯỚC TIẾP THEO
+## Bước tiếp theo
 
-Sau khi hoàn thành bài này, sang:
+Sau khi hoàn thành:
 - `02_ML_MODELS.md` - XGBoost, LightGBM, Random Forest
-
-**Chúc bạn học tốt! 🎓**
+- `03_LSTM_GRU.md` - Deep Learning cho Time Series

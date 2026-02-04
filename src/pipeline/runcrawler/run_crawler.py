@@ -25,7 +25,8 @@ def crawl_many(
     end_date: str,
     save_dir: str = 'data/raw',
     combine: bool = False,
-    skip_on_error: bool = True
+    skip_on_error: bool = True,
+    page_size: int = 3000
 ) -> List[pd.DataFrame]:
     """
     Crawl historical price data for multiple stock symbols.
@@ -75,7 +76,7 @@ def crawl_many(
         
         try:
             # Fetch data
-            df = fetch_price_cafef(symbol, start_date, end_date)
+            df = fetch_price_cafef(symbol, start_date, end_date, page_size=page_size)
             
             # Check if data is empty
             if df.empty:
@@ -192,8 +193,8 @@ if __name__ == "__main__":
     symbols = ['FPT', 'VNM', 'HPG']
     results = crawl_many(
         symbols=symbols,
-        start_date='01/01/2024',
-        end_date='31/01/2024',
+        start_date='01/01/2016',
+        end_date='31/01/2026',
         save_dir='data/raw',
         combine=True
     )

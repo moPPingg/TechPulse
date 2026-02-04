@@ -3,11 +3,18 @@
 Script để lấy toàn bộ 30 mã cổ phiếu VN30 từ CafeF
 và chạy full pipeline: Crawl → Clean → Features
 
+Cấu hình đọc từ configs/config.yaml và configs/symbols.yaml
 Author: Auto-generated
 Date: 2026-01-20
 """
 import sys
 import io
+from pathlib import Path
+
+# Thêm project root vào Python path (để import src.* hoạt động)
+_project_root = Path(__file__).resolve().parent.parent.parent.parent
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
 
 # Fix encoding cho Windows console
 if sys.platform == 'win32':
@@ -17,6 +24,7 @@ if sys.platform == 'win32':
 from src.pipeline.runcrawler.run_crawler import crawl_many
 from src.clean.clean_price import clean_many
 from src.features.build_features import build_features
+from src.utils.file_utils import load_yaml
 import logging
 
 # ============================================================================
@@ -29,314 +37,236 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # ============================================================================
-# DANH SÁCH 30 MÃ VN30 (Cập nhật Q1/2026)
+# FALLBACK - DANH SÁCH VN30 (dùng khi không có symbols.yaml)
 # ============================================================================
-# Lưu ý: Danh sách này thay đổi mỗi quý, cần kiểm tra tại:
-# https://www.hsx.vn/Modules/Listed/Web/SymbolList/faad6e1b-8646-48aa-8f6f-b6fc092d714d?fid=a938a51449064a84a7b9bd99bf49c97e
-VN30_SYMBOLS = [
-    'ACB',  # Ngân hàng Á Châu
-    'BCM',  # Khoáng sản Bắc Cạn
-    'BID',  # Ngân hàng BIDV
-    'BVH',  # Bảo Việt Holdings
-    'CTG',  # Ngân hàng Vietinbank
-    'FPT',  # FPT Corporation
-    'GAS',  # PetroVietnam Gas
-    'GVR',  # Cao su Việt Nam
-    'HDB',  # Ngân hàng HDBank
-    'HPG',  # Hòa Phát Group
-    'MBB',  # Ngân hàng MB
-    'MSN',  # Masan Group
-    'MWG',  # Mobile World
-    'PLX',  # Petrolimex
-    'POW',  # PetroVietnam Power
-    'SAB',  # Sabeco
-    'SSI',  # SSI Securities
-    'STB',  # Ngân hàng Sacombank
-    'TCB',  # Ngân hàng Techcombank
-    'TPB',  # Ngân hàng TPBank
-    'VCB',  # Ngân hàng Vietcombank
-    'VHM',  # Vinhomes
-    'VIB',  # Ngân hàng VIB
-    'VIC',  # Vingroup
-    'VJC',  # Vietjet Air
-    'VNM',  # Vinamilk
-    'VPB',  # Ngân hàng VPBank
-    'VRE',  # Vincom Retail
-    'SSB',  # Ngân hàng SeABank
-    'PDR',  # Phát Đạt
+VN30_SYMBOLS_FALLBACK = [
+    'ACB', 'BCM', 'BID', 'BVH', 'CTG', 'FPT', 'GAS', 'GVR', 'HDB', 'HPG',
+    'MBB', 'MSN', 'MWG', 'PLX', 'POW', 'SAB', 'SSI', 'STB', 'TCB', 'TPB',
+    'VCB', 'VHM', 'VIB', 'VIC', 'VJC', 'VNM', 'VPB', 'VRE', 'SSB', 'PDR',
 ]
 
 
+def _get_config_path(filename: str) -> Path:
+    """Lấy đường dẫn file config (từ project root)."""
+    project_root = Path(__file__).resolve().parent.parent.parent
+    return project_root / 'configs' / filename
+
+
+def load_pipeline_config() -> dict:
+    """
+    Đọc cấu hình từ YAML. Fallback về giá trị mặc định nếu file không tồn tại.
+    
+    Returns:
+        dict với keys: symbols, start_date, end_date, raw_dir, clean_dir,
+        features_dir, page_size, skip_on_error, clean_opts
+    """
+    config_path = _get_config_path('config.yaml')
+    symbols_path = _get_config_path('symbols.yaml')
+    
+    config = load_yaml(config_path) if config_path.exists() else {}
+    symbols_config = load_yaml(symbols_path) if symbols_path.exists() else {}
+    
+    # Lấy symbols từ symbols.yaml, fallback VN30_SYMBOLS_FALLBACK
+    symbols = symbols_config.get('vn30', VN30_SYMBOLS_FALLBACK)
+    symbols = [s.strip().upper() for s in symbols if isinstance(s, str)]
+    if not symbols:
+        symbols = VN30_SYMBOLS_FALLBACK
+    
+    # Lấy config crawl
+    crawl = config.get('crawl', {})
+    data = config.get('data', {})
+    clean_cfg = config.get('clean', {})
+    pipeline_cfg = config.get('pipeline', {})
+    
+    return {
+        'symbols': symbols,
+        'start_date': crawl.get('start_date', '01/01/2015'),
+        'end_date': crawl.get('end_date', '31/01/2026'),
+        'raw_dir': data.get('raw_dir', 'data/raw/vn30'),
+        'clean_dir': data.get('clean_dir', 'data/clean/vn30'),
+        'features_dir': data.get('features_dir', 'data/features/vn30'),
+        'page_size': crawl.get('page_size', 3000),
+        'skip_on_error': pipeline_cfg.get('skip_on_error', True),
+        'remove_duplicates': clean_cfg.get('remove_duplicates', True),
+        'remove_nulls': clean_cfg.get('remove_nulls', True),
+        'validate': clean_cfg.get('validate', True),
+    }
+
+
 def run_vn30_pipeline(
-    start_date: str,
-    end_date: str,
-    raw_dir: str = 'data/raw/vn30',
-    clean_dir: str = 'data/clean/vn30',
-    features_dir: str = 'data/features/vn30'
+    start_date: str = None,
+    end_date: str = None,
+    raw_dir: str = None,
+    clean_dir: str = None,
+    features_dir: str = None,
+    symbols: list = None,
+    page_size: int = None,
+    skip_on_error: bool = None,
+    **kwargs
 ):
     """
     Chạy toàn bộ pipeline cho VN30: Crawl → Clean → Features
     
-    Pipeline gồm 3 bước:
-    1. CRAWL: Lấy dữ liệu từ CafeF API
-    2. CLEAN: Làm sạch, validate data quality
-    3. FEATURES: Tính toán technical indicators
+    Tham số mặc định lấy từ configs/config.yaml. Truyền tham số để override.
     
     Args:
-        start_date: Ngày bắt đầu, format 'DD/MM/YYYY' (vd: '01/01/2024')
-        end_date: Ngày kết thúc, format 'DD/MM/YYYY' (vd: '31/12/2024')
-        raw_dir: Thư mục lưu raw data (default: 'data/raw/vn30')
-        clean_dir: Thư mục lưu clean data (default: 'data/clean/vn30')
-        features_dir: Thư mục lưu features (default: 'data/features/vn30')
-    
-    Returns:
-        None (lưu files vào disk)
+        start_date: Ngày bắt đầu (DD/MM/YYYY). None = đọc từ config
+        end_date: Ngày kết thúc (DD/MM/YYYY). None = đọc từ config
+        raw_dir, clean_dir, features_dir: Đường dẫn thư mục. None = đọc từ config
+        symbols: Danh sách mã. None = đọc từ configs/symbols.yaml
+        page_size: Số bản ghi/request. None = đọc từ config
+        skip_on_error: Bỏ qua lỗi và tiếp tục. None = đọc từ config
     
     Example:
-        >>> run_vn30_pipeline('01/01/2024', '31/12/2024')
-        # Sẽ tạo 90 files (30 raw + 30 clean + 30 features)
+        >>> run_vn30_pipeline()  # Dùng toàn bộ config từ YAML
+        >>> run_vn30_pipeline(start_date='01/01/2020', end_date='31/12/2024')  # Override ngày
     """
+    cfg = load_pipeline_config()
+    
+    # Override bằng tham số truyền vào
+    start_date = start_date or cfg['start_date']
+    end_date = end_date or cfg['end_date']
+    raw_dir = raw_dir or cfg['raw_dir']
+    clean_dir = clean_dir or cfg['clean_dir']
+    features_dir = features_dir or cfg['features_dir']
+    symbols = symbols or cfg['symbols']
+    page_size = page_size if page_size is not None else cfg['page_size']
+    skip_on_error = skip_on_error if skip_on_error is not None else cfg['skip_on_error']
+    
     logger.info("=" * 80)
     logger.info("🚀 BẮT ĐẦU PIPELINE VN30")
     logger.info("=" * 80)
     logger.info(f"📅 Khoảng thời gian: {start_date} → {end_date}")
-    logger.info(f"📊 Tổng số mã: {len(VN30_SYMBOLS)}")
+    logger.info(f"📊 Tổng số mã: {len(symbols)}")
     
-    # ========================================================================
-    # BƯỚC 1: CRAWL DỮ LIỆU TỪ CAFEF
-    # ========================================================================
+    # BƯỚC 1: CRAWL
     logger.info("\n" + "=" * 80)
     logger.info("📥 BƯỚC 1/3: CRAWL DỮ LIỆU VN30")
     logger.info("=" * 80)
-    logger.info("Đang gọi API CafeF để lấy dữ liệu lịch sử...")
     
     try:
         raw_results = crawl_many(
-            symbols=VN30_SYMBOLS,
+            symbols=symbols,
             start_date=start_date,
             end_date=end_date,
             save_dir=raw_dir,
-            combine=True,        # Tạo thêm file combined chứa tất cả mã
-            skip_on_error=True   # Tiếp tục nếu 1 mã bị lỗi
+            combine=True,
+            skip_on_error=skip_on_error,
+            page_size=page_size,
         )
-        
-        logger.info(f"✅ Crawl hoàn tất: {len(raw_results)}/{len(VN30_SYMBOLS)} mã thành công")
         
         if not raw_results:
             logger.error("❌ Không có dữ liệu nào được crawl. Dừng pipeline.")
-            logger.error("Nguyên nhân có thể:")
-            logger.error("  - Không có kết nối Internet")
-            logger.error("  - API CafeF đang bảo trì")
-            logger.error("  - Khoảng ngày không hợp lệ")
             return
             
     except Exception as e:
-        logger.error(f"❌ Lỗi trong quá trình crawl: {e}")
+        logger.error(f"❌ Lỗi crawl: {e}")
         return
     
-    # ========================================================================
-    # BƯỚC 2: CLEAN DỮ LIỆU
-    # ========================================================================
+    logger.info(f"✅ Crawl hoàn tất: {len(raw_results)}/{len(symbols)} mã thành công")
+    
+    # BƯỚC 2: CLEAN
     logger.info("\n" + "=" * 80)
-    logger.info("🧹 BƯỚC 2/3: CLEAN VÀ VALIDATE DỮ LIỆU")
+    logger.info("🧹 BƯỚC 2/3: CLEAN DỮ LIỆU")
     logger.info("=" * 80)
-    logger.info("Đang làm sạch dữ liệu:")
-    logger.info("  - Loại bỏ duplicates")
-    logger.info("  - Loại bỏ null values")
-    logger.info("  - Validate OHLC logic")
-    logger.info("  - Kiểm tra giá âm, giá = 0")
     
     try:
         clean_results = clean_many(
             raw_dir=raw_dir,
             clean_dir=clean_dir,
-            skip_on_error=True,
-            remove_duplicates=True,
-            remove_nulls=True,
-            validate=True
+            skip_on_error=skip_on_error,
+            remove_duplicates=cfg['remove_duplicates'],
+            remove_nulls=cfg['remove_nulls'],
+            validate=cfg['validate'],
         )
-        
-        logger.info(f"✅ Clean hoàn tất: {len(clean_results)} files")
         
         if not clean_results:
             logger.warning("⚠️  Không có file clean được. Bỏ qua bước features.")
             return
             
     except Exception as e:
-        logger.error(f"❌ Lỗi trong quá trình clean: {e}")
+        logger.error(f"❌ Lỗi clean: {e}")
         return
     
-    # ========================================================================
-    # BƯỚC 3: BUILD FEATURES (TECHNICAL INDICATORS)
-    # ========================================================================
+    logger.info(f"✅ Clean hoàn tất: {len(clean_results)} files")
+    
+    # BƯỚC 3: FEATURES
     logger.info("\n" + "=" * 80)
-    logger.info("⚙️  BƯỚC 3/3: BUILD TECHNICAL FEATURES")
+    logger.info("⚙️  BƯỚC 3/3: BUILD FEATURES")
     logger.info("=" * 80)
-    logger.info("Đang tính toán các chỉ số kỹ thuật:")
-    logger.info("  - Returns (1d, 5d, 10d, 20d)")
-    logger.info("  - Moving Averages (MA5, MA10, MA20, MA50)")
-    logger.info("  - EMA (12, 26)")
-    logger.info("  - Volatility (5d, 10d, 20d)")
-    logger.info("  - RSI (14)")
-    logger.info("  - MACD, Signal, Histogram")
-    logger.info("  - Bollinger Bands (upper, middle, lower, width)")
-    logger.info("  - Volume features")
-    logger.info("  - Momentum indicators")
-    logger.info("  - Price range & ATR")
     
     try:
         feature_results = build_features(
             clean_dir=clean_dir,
             features_dir=features_dir,
-            skip_on_error=True,
-            drop_na=True
+            skip_on_error=skip_on_error,
+            drop_na=True,
         )
-        
-        logger.info(f"✅ Features hoàn tất: {len(feature_results)} files")
-        
     except Exception as e:
-        logger.error(f"❌ Lỗi trong quá trình build features: {e}")
+        logger.error(f"❌ Lỗi build features: {e}")
         return
     
-    # ========================================================================
-    # TỔNG KẾT KẾT QUẢ
-    # ========================================================================
+    logger.info(f"✅ Features hoàn tất: {len(feature_results)} files")
+    
+    # TỔNG KẾT
     logger.info("\n" + "=" * 80)
     logger.info("🎉 HOÀN THÀNH PIPELINE VN30")
     logger.info("=" * 80)
-    logger.info(f"📁 Raw data:     {len(raw_results)} files → {raw_dir}/")
-    logger.info(f"📁 Clean data:   {len(clean_results)} files → {clean_dir}/")
-    logger.info(f"📁 Features:     {len(feature_results)} files → {features_dir}/")
+    logger.info(f"📁 Raw:     {len(raw_results)} files → {raw_dir}/")
+    logger.info(f"📁 Clean:   {len(clean_results)} files → {clean_dir}/")
+    logger.info(f"📁 Features: {len(feature_results)} files → {features_dir}/")
     logger.info("=" * 80)
-    
-    # Hiển thị sample của 1 file features
-    if feature_results:
-        sample_file = list(feature_results.keys())[0]
-        sample_df = feature_results[sample_file]
-        logger.info(f"\n📊 Sample features từ {sample_file}:")
-        logger.info(f"   - Tổng số dòng: {len(sample_df)}")
-        logger.info(f"   - Tổng số cột: {len(sample_df.columns)}")
-        logger.info(f"   - Columns: {list(sample_df.columns[:10])}...")
-    
-    logger.info("\n✅ Bạn có thể sử dụng data cho:")
-    logger.info("   1. Machine Learning (prediction)")
-    logger.info("   2. Technical Analysis")
-    logger.info("   3. Backtesting trading strategies")
-    logger.info("   4. Data visualization")
 
 
 def fetch_vn30_only(
-    start_date: str,
-    end_date: str,
-    save_dir: str = 'data/raw/vn30'
+    start_date: str = None,
+    end_date: str = None,
+    save_dir: str = None,
+    symbols: list = None,
+    page_size: int = None,
 ):
     """
-    Chỉ crawl VN30 (KHÔNG clean, KHÔNG tính features)
-    
-    Dùng khi:
-    - Bạn chỉ cần raw data
-    - Muốn tự xử lý data theo cách riêng
-    - Crawl nhanh để kiểm tra
-    
-    Args:
-        start_date: Ngày bắt đầu, format 'DD/MM/YYYY'
-        end_date: Ngày kết thúc, format 'DD/MM/YYYY'
-        save_dir: Thư mục lưu (default: 'data/raw/vn30')
-    
-    Returns:
-        List of DataFrames (mỗi mã 1 DataFrame)
-    
-    Example:
-        >>> data = fetch_vn30_only('01/01/2024', '31/12/2024')
-        >>> print(f"Lấy được {len(data)} mã")
-        >>> # Xem data của FPT
-        >>> fpt_data = [df for df in data if df['ticker'].iloc[0] == 'FPT'][0]
-        >>> print(fpt_data.head())
+    Chỉ crawl VN30 (KHÔNG clean, KHÔNG tính features).
+    Tham số mặc định lấy từ config.
     """
+    cfg = load_pipeline_config()
+    
+    start_date = start_date or cfg['start_date']
+    end_date = end_date or cfg['end_date']
+    save_dir = save_dir or cfg['raw_dir']
+    symbols = symbols or cfg['symbols']
+    page_size = page_size if page_size is not None else cfg['page_size']
+    
     logger.info("=" * 80)
     logger.info("📥 CRAWLING VN30 (CHỈ RAW DATA)")
     logger.info("=" * 80)
-    logger.info(f"Tổng số mã: {len(VN30_SYMBOLS)}")
-    logger.info(f"Khoảng thời gian: {start_date} → {end_date}")
+    logger.info(f"Tổng số mã: {len(symbols)} | {start_date} → {end_date}")
     
     results = crawl_many(
-        symbols=VN30_SYMBOLS,
+        symbols=symbols,
         start_date=start_date,
         end_date=end_date,
         save_dir=save_dir,
         combine=True,
-        skip_on_error=True
+        skip_on_error=cfg['skip_on_error'],
+        page_size=page_size,
     )
     
-    logger.info("\n" + "=" * 80)
-    logger.info(f"✅ HOÀN THÀNH! Đã lấy {len(results)}/{len(VN30_SYMBOLS)} mã VN30")
-    logger.info(f"📁 Files được lưu tại: {save_dir}/")
-    logger.info("=" * 80)
-    
+    logger.info(f"✅ HOÀN THÀNH! {len(results)}/{len(symbols)} mã → {save_dir}/")
     return results
 
 
-def update_vn30_symbols(new_symbols: list):
-    """
-    Cập nhật danh sách VN30 (thay đổi mỗi quý)
-    
-    Args:
-        new_symbols: List các mã mới (phải có đúng 30 mã)
-    
-    Example:
-        >>> new_list = ['ACB', 'BID', 'CTG', ...]  # 30 mã
-        >>> update_vn30_symbols(new_list)
-    """
-    global VN30_SYMBOLS
-    
-    if len(new_symbols) != 30:
-        logger.error(f"❌ VN30 phải có đúng 30 mã. Bạn cung cấp {len(new_symbols)} mã.")
-        return False
-    
-    VN30_SYMBOLS = [symbol.upper().strip() for symbol in new_symbols]
-    logger.info(f"✅ Đã cập nhật danh sách VN30: {VN30_SYMBOLS}")
-    return True
-
-
 # ============================================================================
-# MAIN - CHẠY KHI EXECUTE FILE TRỰC TIẾP
+# MAIN
 # ============================================================================
 if __name__ == "__main__":
     """
-    Có 2 cách sử dụng:
-    
-    CÁCH 1: Chỉ crawl raw data (nhanh, ~2 phút)
-    CÁCH 2: Chạy full pipeline (lâu hơn, ~5-10 phút)
-    
-    Uncomment cách nào bạn muốn dùng ở dưới
+    Chạy full pipeline với cấu hình từ configs/config.yaml và configs/symbols.yaml
+    Sửa file YAML để thay đổi ngày, mã cổ phiếu, v.v.
     """
-    
-    # ========================================================================
-    # CÁCH 1: CHỈ CRAWL RAW DATA (Nhanh nhất)
-    # ========================================================================
-    # Uncomment 2 dòng dưới để chạy
-    # print("\n🔹 Chế độ: CHỈ CRAWL RAW DATA")
-    # fetch_vn30_only('01/01/2024', '20/01/2026')
-    
-    
-    # ========================================================================
-    # CÁCH 2: CHẠY FULL PIPELINE (Crawl → Clean → Features)
-    # ========================================================================
-    # Uncomment 2 dòng dưới để chạy
     print("\n🔹 Chế độ: FULL PIPELINE (Crawl + Clean + Features)")
-    run_vn30_pipeline(
-        start_date='01/01/2024',
-        end_date='20/01/2026'
-    )
+    run_vn30_pipeline()
     
-    
-    # ========================================================================
-    # TÙY CHỌN: Thay đổi thư mục lưu
-    # ========================================================================
-    # run_vn30_pipeline(
-    #     start_date='01/01/2024',
-    #     end_date='20/01/2026',
-    #     raw_dir='my_data/raw',
-    #     clean_dir='my_data/clean',
-    #     features_dir='my_data/features'
-    # )
+    # Hoặc override:
+    # run_vn30_pipeline(start_date='01/01/2020', end_date='31/12/2024')
+    # fetch_vn30_only()  # Chỉ crawl raw
