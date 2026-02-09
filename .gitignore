@@ -38,14 +38,14 @@ env/
 .ipynb_checkpoints
 *.ipynb
 
-# Data files (không commit dữ liệu lên Git)
-data/raw/
-data/clean/
-data/features/
-data/processed/
-*.csv
-*.xlsx
-*.xls
+# Data files - đã bỏ ignore để push lên GitHub (bạn có thể thêm lại nếu không muốn commit)
+# data/raw/
+# data/clean/
+# data/features/
+# data/processed/
+# *.csv
+# *.xlsx
+# *.xls
 
 # Logs
 logs/
