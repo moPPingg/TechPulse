@@ -90,11 +90,14 @@ def fetch_price_cafef(
         # Rename columns
         df = df.rename(columns=column_mapping)
         
-        # Convert date column
+        # Convert date column (CafeF returns DD/MM/YYYY)
         try:
-            df["date"] = pd.to_datetime(df["date"])
-        except Exception as e:
-            raise ValueError(f"Failed to parse dates: {e}")
+            df["date"] = pd.to_datetime(df["date"], format="mixed", dayfirst=True)
+        except Exception:
+            try:
+                df["date"] = pd.to_datetime(df["date"], format="%d/%m/%Y")
+            except Exception as e:
+                raise ValueError(f"Failed to parse dates: {e}")
         
         # Add ticker symbol
         df["ticker"] = symbol.upper()

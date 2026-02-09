@@ -20,3 +20,11 @@ PyYAML>=6.0
 # Web app (FastAPI + static frontend)
 fastapi>=0.104.0
 uvicorn[standard]>=0.24.0
+pydantic>=2.0.0
+
+# Scheduler for background tasks (news crawl)
+APScheduler>=3.10.0
+
+# Optional: LLM news enrichment (khi bật llm_enrich trong news.yaml)
+# openai>=1.0.0
+# anthropic>=0.18.0

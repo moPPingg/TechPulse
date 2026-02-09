@@ -72,7 +72,8 @@ def extract_tickers_from_text(
         for name in names:
             if not name or not isinstance(name, str):
                 continue
-            if re.search(r"\b" + re.escape(name) + r"\b", text, re.IGNORECASE):
+            # Substring match (aliases like Vietcombank, Vingroup are distinctive)
+            if re.search(re.escape(name), text, re.IGNORECASE):
                 found.add(ticker.upper())
                 result.append((ticker.upper(), "alias"))
                 break

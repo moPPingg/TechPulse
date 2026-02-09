@@ -12,6 +12,7 @@ data:
   clean_dir: "data/clean/vn30"
   features_dir: "data/features/vn30"
   processed_dir: "data/processed/vn30"
+  forecasts_dir: "data/forecasts"  # Cached model outputs for app
 
 # Cấu hình crawl
 crawl:

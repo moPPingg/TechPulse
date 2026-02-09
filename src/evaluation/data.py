@@ -74,6 +74,10 @@ def prepare_tabular(
             raise ValueError("Not enough rows for tabular (need at least 2)")
         X = X[:n]
         y = y[:n]
+        # Sanitize: inf/nan break StandardScaler and models
+        X = np.nan_to_num(X, nan=0.0, posinf=0.0, neginf=0.0)
+        X = np.clip(X, -1e10, 1e10)
+        y = np.nan_to_num(y, nan=0.0, posinf=0.0, neginf=0.0)
         if dates is not None:
             dates = dates[:n]
         return X.astype(np.float64), y.astype(np.float64), dates
@@ -150,6 +154,10 @@ def prepare_sequential(
         raise ValueError(f"Target column '{target}' not in DataFrame")
     M = full[feats].values.astype(np.float64)
     y_all = full[target].values.astype(np.float64)
+    # Sanitize: inf/nan break StandardScaler and models
+    M = np.nan_to_num(M, nan=0.0, posinf=0.0, neginf=0.0)
+    M = np.clip(M, -1e10, 1e10)
+    y_all = np.nan_to_num(y_all, nan=0.0, posinf=0.0, neginf=0.0)
     dates_all = full[date_col].values if date_col in full.columns else None
     n_full = len(full)
     n_train, n_val = len(train_df), len(val_df)
@@ -229,6 +237,9 @@ def get_rolling_fold_tabular(
     sub = df.iloc[: t + 2]
     X = sub[feats].values.astype(np.float64)
     y = sub[target].shift(-1).values.astype(np.float64)
+    X = np.nan_to_num(X, nan=0.0, posinf=0.0, neginf=0.0)
+    X = np.clip(X, -1e10, 1e10)
+    y = np.nan_to_num(y, nan=0.0, posinf=0.0, neginf=0.0)
     X_train = X[: t + 1]
     y_train = y[: t + 1]
     X_test = X[t : t + 1]

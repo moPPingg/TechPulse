@@ -3,73 +3,191 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>TechPulse – Khuyến nghị cổ phiếu</title>
+  <title>TechPulse – Phân tích cổ phiếu chuyên nghiệp</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/static/css/style.css" />
+  <script src="https://unpkg.com/lightweight-charts@4.1.0/dist/lightweight-charts.standalone.production.js"></script>
 </head>
 <body>
-  <div class="container">
-    <header>
-      <h1>Khuyến nghị cổ phiếu</h1>
-      <p class="caption">Nhập thông tin và mã cổ phiếu để nhận khuyến nghị và đánh giá rủi ro. Không phải lời khuyên đầu tư.</p>
-    </header>
-
-    <form id="profile-form" class="form-card">
-      <label>
-        <span>Họ tên (hoặc nickname)</span>
-        <input type="text" name="name" placeholder="Nguyễn Văn A" />
-      </label>
-      <label>
-        <span>Vốn (VND)</span>
-        <input type="number" name="capital" min="0" value="100000000" step="10000000" />
-      </label>
-      <label>
-        <span>Kinh nghiệm đầu tư</span>
-        <select name="years_experience">
-          <option value="< 1 năm">&lt; 1 năm</option>
-          <option value="1–3 năm" selected>1–3 năm</option>
-          <option value="3–5 năm">3–5 năm</option>
-          <option value="5+ năm">5+ năm</option>
-        </select>
-      </label>
-      <label>
-        <span>Khả năng chấp nhận rủi ro</span>
-        <select name="risk_tolerance">
-          <option value="Thấp">Thấp</option>
-          <option value="Trung bình" selected>Trung bình</option>
-          <option value="Cao">Cao</option>
-        </select>
-      </label>
-      <label>
-        <span>Mã cổ phiếu (VN30)</span>
-        <select name="symbol" id="symbol-select">
-          <option value="FPT">FPT</option>
-          <!-- Các mã khác được nạp bằng JS từ /api/symbols -->
-        </select>
-      </label>
-      <button type="submit" id="submit-btn">Xem khuyến nghị</button>
-    </form>
-
-    <div id="message" class="message" aria-live="polite"></div>
-    <div id="result" class="result" hidden>
-      <div id="recommendation-card" class="rec-card"></div>
-      <div class="metrics">
-        <div class="metric">
-          <span class="metric-label">Xác suất lỗ trong kỳ</span>
-          <span id="risk-loss" class="metric-value"></span>
+  <div class="app fintech">
+    <header class="header fintech-header">
+      <div class="header-left">
+        <div class="logo">
+          <span class="logo-icon">📈</span>
+          <h1>TechPulse</h1>
         </div>
-        <div class="metric">
-          <span class="metric-label">Rủi ro sụt giảm mạnh vốn</span>
-          <span id="risk-ruin" class="metric-value"></span>
+        <div class="symbol-primary">
+          <select id="symbol-select" class="symbol-select" aria-label="Chọn mã cổ phiếu">
+            <option value="ACB">ACB</option>
+            <option value="BCM">BCM</option>
+            <option value="BID">BID</option>
+            <option value="BVH">BVH</option>
+            <option value="CTG">CTG</option>
+            <option value="FPT" selected>FPT</option>
+            <option value="GAS">GAS</option>
+            <option value="GVR">GVR</option>
+            <option value="HDB">HDB</option>
+            <option value="HPG">HPG</option>
+            <option value="MBB">MBB</option>
+            <option value="MSN">MSN</option>
+            <option value="MWG">MWG</option>
+            <option value="PLX">PLX</option>
+            <option value="POW">POW</option>
+            <option value="SAB">SAB</option>
+            <option value="SSI">SSI</option>
+            <option value="STB">STB</option>
+            <option value="TCB">TCB</option>
+            <option value="TPB">TPB</option>
+            <option value="VCB">VCB</option>
+            <option value="VHM">VHM</option>
+            <option value="VIB">VIB</option>
+            <option value="VIC">VIC</option>
+            <option value="VJC">VJC</option>
+            <option value="VNM">VNM</option>
+            <option value="VPB">VPB</option>
+            <option value="VRE">VRE</option>
+            <option value="SSB">SSB</option>
+            <option value="PDR">PDR</option>
+          </select>
+          <span class="exchange-badge">HOSE · VN30</span>
         </div>
       </div>
-      <section class="explanation">
-        <h2>Giải thích</h2>
-        <p id="explanation-text"></p>
-      </section>
+      <div class="header-right">
+        <div class="today-badge" id="today-badge" title="Ngày hiện tại">
+          <span id="today-date">—</span>
+        </div>
+      </div>
+    </header>
+
+    <div class="fintech-layout">
+      <aside class="sidebar">
+        <section class="sidebar-section profile-section profile-section-top">
+          <h3 class="sidebar-title">Hồ sơ đầu tư</h3>
+          <form id="profile-form" class="profile-form">
+            <label class="capital-row">
+              <span>Vốn đầu tư</span>
+              <div class="capital-inputs">
+                <select name="capital" id="capital-select" aria-label="Chọn mức vốn">
+                  <option value="50">50 triệu</option>
+                  <option value="100" selected>100 triệu</option>
+                  <option value="200">200 triệu</option>
+                  <option value="500">500 triệu</option>
+                  <option value="1000">1 tỷ</option>
+                  <option value="2000">2 tỷ</option>
+                  <option value="5000">5 tỷ</option>
+                  <option value="10000">10 tỷ</option>
+                  <option value="custom">Khác (nhập số)</option>
+                </select>
+                <input type="number" name="capital_custom" id="capital-custom" class="capital-custom" min="1" max="999999" placeholder="VD: 234" title="Vốn (triệu VNĐ)" aria-label="Vốn tùy chọn (triệu)" hidden />
+              </div>
+            </label>
+            <label><span>Mức độ chấp nhận rủi ro</span><select name="risk_tolerance"><option value="Thấp">Thấp</option><option value="Trung bình" selected>Trung bình</option><option value="Cao">Cao</option></select></label>
+            <label><span>Tỷ lệ vay</span><select name="leverage"><option value="0" selected>0%</option><option value="0.1">10%</option><option value="0.2">20%</option><option value="0.25">25%</option><option value="0.3">30%</option><option value="0.4">40%</option><option value="0.5">50%</option></select></label>
+            <input type="hidden" name="years_experience" value="1–3 năm" />
+          </form>
+        </section>
+        <section class="sidebar-section">
+          <h3 class="sidebar-title">VN30</h3>
+          <div id="symbol-list" class="symbol-list"></div>
+        </section>
+      </aside>
+
+      <main class="main fintech-main">
+        <div id="message" class="message" aria-live="polite"></div>
+
+        <div id="analysis-view" class="analysis-view" hidden>
+          <!-- PRODUCTION: Prominent disclaimer before any recommendation -->
+          <div class="disclaimer-banner" role="alert">
+            <strong>⚠️ Lưu ý:</strong> Đây không phải lời khuyên đầu tư. Chỉ mang tính tham khảo. P(lỗ) và P(ruin) dựa trên giả định phân phối chuẩn; có thể đánh giá thấp rủi ro đuôi. Độ tin cậy là độ tin cậy mô hình, không phải xác suất chính xác.
+          </div>
+
+          <!-- SECTION 1: DATA (Market Context) -->
+          <section class="block block-data" aria-labelledby="data-heading">
+            <h2 id="data-heading" class="block-title"><span class="block-badge">DATA</span> Thị trường</h2>
+            <div class="chart-wrap">
+              <div class="chart-horizon-bar">
+                <span class="chart-horizon-label">Xem đến:</span>
+                <label class="horizon-opt"><input type="radio" name="horizon" value="1d" checked />1D</label>
+                <label class="horizon-opt"><input type="radio" name="horizon" value="7d" />7D</label>
+                <label class="horizon-opt horizon-opt-with-input">
+                  <input type="radio" name="horizon" value="date" />
+                  <span>Ngày</span>
+                  <input type="date" id="target-date" class="horizon-inline-input" title="Chọn ngày kết thúc" />
+                </label>
+                <label class="horizon-opt horizon-opt-with-input">
+                  <input type="radio" name="horizon" value="month" />
+                  <span>Tháng</span>
+                  <input type="month" id="target-month" class="horizon-inline-input" title="Chọn tháng kết thúc" />
+                </label>
+                <span class="chart-end-hint" id="chart-end-hint" aria-live="polite"></span>
+              </div>
+              <div id="chart-container" class="chart-container"></div>
+              <div id="chart-tooltip" class="chart-tooltip" aria-hidden="true"></div>
+            </div>
+            <div id="data-summary" class="data-summary"></div>
+          </section>
+
+          <!-- SECTION 2: SIGNAL (4 layers) -->
+          <section class="block block-signal" aria-labelledby="signal-heading">
+            <h2 id="signal-heading" class="block-title"><span class="block-badge">SIGNAL</span> Tín hiệu (4 lớp)</h2>
+            <div class="signal-grid signal-grid-4">
+              <div class="signal-card signal-layer">
+                <h4>1. Giá / Kỹ thuật</h4>
+                <div id="signal-price-technical" class="signal-content"></div>
+              </div>
+              <div class="signal-card signal-layer">
+                <h4>2. ML/DL Dự báo</h4>
+                <div id="signal-ml-forecast" class="signal-content"></div>
+              </div>
+              <div class="signal-card signal-layer">
+                <h4>3. Tin tức & Sự kiện</h4>
+                <div id="signal-news-event" class="signal-content"></div>
+              </div>
+              <div class="signal-card signal-layer">
+                <h4>4. Rủi ro & Bất định</h4>
+                <div id="signal-risk-uncertainty" class="signal-content"></div>
+              </div>
+            </div>
+          </section>
+
+          <!-- SECTION 3: RISK -->
+          <section class="block block-risk" aria-labelledby="risk-heading">
+            <h2 id="risk-heading" class="block-title"><span class="block-badge block-badge-risk">RISK</span> Rủi ro</h2>
+            <p class="risk-disclaimer">P(lỗ), P(ruin) dựa trên giả định phân phối chuẩn.</p>
+            <div id="risk-metrics" class="risk-metrics"></div>
+          </section>
+
+          <!-- SECTION 4: DECISION (Engine output) -->
+          <section class="block block-decision" aria-labelledby="decision-heading">
+            <h2 id="decision-heading" class="block-title"><span class="block-badge block-badge-decision">DECISION</span> Khuyến nghị</h2>
+            <div class="decision-engine">
+              <div id="decision-card" class="decision-card"></div>
+              <div class="decision-meta">
+                <span id="decision-position" class="decision-meta-item" title="Tỷ trọng tối đa gợi ý cho vị thế này (phần trăm tổng vốn)"><span class="label">Tỷ trọng gợi ý</span><span class="value">—</span></span>
+                <span id="decision-confidence" class="decision-meta-item" title="Độ tin cậy mô hình (0–100%), không phải xác suất chính xác"><span class="label">Độ tin cậy mô hình</span><span class="value">—</span></span>
+              </div>
+            </div>
+            <div id="decision-reasoning" class="decision-reasoning"></div>
+          </section>
+
+          <!-- SECTION 5: INVESTMENT INTELLIGENCE -->
+          <section class="block block-intel" aria-labelledby="intel-heading">
+            <h2 id="intel-heading" class="block-title"><span class="block-badge">INTELLIGENCE</span> Tin tức đầu tư</h2>
+            <div id="intel-summary" class="intel-summary"></div>
+            <div id="intel-impact-list" class="intel-impact-list"></div>
+          </section>
+        </div>
+
+        <div id="empty-state" class="empty-state">
+          <p>Chọn mã cổ phiếu để xem phân tích</p>
+        </div>
+      </main>
     </div>
 
-    <footer class="disclaimer">
-      Đây không phải lời khuyên đầu tư. Chỉ mang tính tham khảo nghiên cứu.
+    <footer class="footer">
+      <p>⚠️ Không phải lời khuyên đầu tư. Chỉ mang tính tham khảo.</p>
     </footer>
   </div>
 

@@ -1,0 +1,75 @@
+# Decision Engine Configuration
+# Production-grade: all weights and thresholds are configurable and auditable.
+#
+# RATIONALE (audit trail):
+# - price_technical: RSI, return, volatility from market data. Weight 0.2 to avoid
+#   over-reliance on lagging indicators.
+# - ml_forecast: Primary signal. Weight 0.3 for strong moves; 0.15 for weak.
+# - news_event: Supporting. composite_score * 0.15; net_impact adds 0.05.
+# - risk_uncertainty: prob_loss > 60% subtracts 0.25; prob_ruin > 15% subtracts 0.3
+#   (strong penalty for tail risk).
+# - Tolerance adjustments: low-tolerance users never Buy easily; high-tolerance
+#   can Buy with lower score threshold.
+
+decision:
+  # Score weights (higher = more influence on final action)
+  price_technical:
+    direction_up_weight: 0.2
+    direction_down_weight: 0.2
+    rsi_oversold_bonus: 0.05
+    rsi_overbought_penalty: 0.05
+
+  ml_forecast:
+    strong_bullish_threshold: 0.1   # mean > 0.1 -> +0.3
+    strong_bearish_threshold: -0.1  # mean < -0.1 -> -0.3
+    weak_bullish_score: 0.15
+    weak_bearish_score: -0.15
+
+  news_event:
+    composite_weight: 0.15
+    net_impact_bullish_bonus: 0.05
+    net_impact_bearish_penalty: 0.05
+
+  risk_uncertainty:
+    prob_loss_high_threshold: 60
+    prob_loss_high_penalty: 0.25
+    prob_loss_medium_threshold: 50
+    prob_loss_medium_penalty: 0.1
+    prob_loss_low_threshold: 40
+    prob_loss_low_bonus: 0.1
+    prob_ruin_high_threshold: 15
+    prob_ruin_high_penalty: 0.3
+    prob_ruin_medium_threshold: 10
+    prob_ruin_medium_penalty: 0.1
+
+  # Action thresholds by risk tolerance
+  thresholds:
+    low_tolerance:
+      buy_min_score: 0.35   # Never Buy (always Hold)
+      avoid_max_score: -0.2
+    medium_tolerance:
+      buy_min_score: 0.25
+      avoid_max_score: -0.25
+    high_tolerance:
+      buy_min_score: 0.1
+      avoid_max_score: -0.35
+
+  # Confidence dampening when model confidence is low
+  confidence_dampen_threshold: 0.4
+  confidence_dampen_factor: 0.7
+
+  # Position sizing
+  position:
+    base_low: 0.1
+    base_medium: 0.2
+    base_high: 0.3
+    hold_fraction: 0.5
+    prob_loss_reduce_threshold: 45
+    prob_loss_reduce_factor: 0.7
+    low_confidence_reduce_factor: 0.8
+    max_position_frac: 0.5
+    max_leverage_factor: 0.5
+
+# Forecast staleness (inference service)
+forecast:
+  max_age_days: 7  # Reject forecast if older than 7 days

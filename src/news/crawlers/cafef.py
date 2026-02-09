@@ -40,7 +40,11 @@ class CafeFNewsCrawler(BaseNewsCrawler):
     def fetch_article_list(self, category: str, max_pages: int) -> List[ArticleRecord]:
         out: List[ArticleRecord] = []
         for page in range(1, max_pages + 1):
-            url = f"{self.base_url}/{category}/trang-{page}.chn"
+            # CafeF dùng ?page=N cho phân trang (trang 1 = không cần param)
+            if page == 1:
+                url = f"{self.base_url}/{category}.chn"
+            else:
+                url = f"{self.base_url}/{category}.chn?page={page}"
             try:
                 r = self.session.get(url, timeout=self.timeout)
                 r.raise_for_status()

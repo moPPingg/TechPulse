@@ -156,7 +156,8 @@ def calculate_rsi(
     gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
     loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
     
-    rs = gain / loss
+    # Avoid inf: when loss=0, rs would be inf → use 1e-10 to avoid division by zero
+    rs = gain / loss.replace(0, np.nan).fillna(1e-10)
     rsi = 100 - (100 / (1 + rs))
     
     col_name = f'rsi_{period}'
@@ -271,7 +272,9 @@ def calculate_volume_features(df: pd.DataFrame) -> pd.DataFrame:
     df['volume_ma_20'] = df['volume'].rolling(window=20).mean()
     
     # Volume ratio (current volume / average volume)
-    df['volume_ratio'] = df['volume'] / df['volume_ma_20']
+    # Avoid inf: when volume_ma_20=0 → inf. Replace 0 with nan so ratio becomes nan, then handled by dropna
+    vol_ma = df['volume_ma_20'].replace(0, np.nan)
+    df['volume_ratio'] = df['volume'] / vol_ma
     
     # Volume change
     df['volume_change'] = df['volume'].pct_change() * 100
@@ -343,8 +346,8 @@ def calculate_price_range(
     # Daily range (intraday volatility)
     df['daily_range'] = df['high'] - df['low']
     
-    # Daily range as percentage of close price
-    df['daily_range_pct'] = (df['daily_range'] / df['close']) * 100
+    # Daily range as percentage of close price (avoid inf when close=0)
+    df['daily_range_pct'] = (df['daily_range'] / df['close'].replace(0, np.nan)) * 100
     
     # Calculate rolling price ranges
     for window in windows:
@@ -354,8 +357,8 @@ def calculate_price_range(
         col_name = f'price_range_{window}'
         df[col_name] = rolling_high - rolling_low
         
-        # Price range as percentage
-        df[f'{col_name}_pct'] = (df[col_name] / df['close']) * 100
+        # Price range as percentage (avoid inf when close=0)
+        df[f'{col_name}_pct'] = (df[col_name] / df['close'].replace(0, np.nan)) * 100
         
         logger.debug(f"Calculated {col_name}")
     
@@ -369,13 +372,14 @@ def calculate_price_range(
     true_range = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
     df['atr_14'] = true_range.rolling(window=14).mean()
     
-    # High-Low ratio
-    df['hl_ratio'] = df['high'] / df['low']
+    # High-Low ratio (avoid inf when low=0)
+    df['hl_ratio'] = df['high'] / df['low'].replace(0, np.nan)
     
     # Position in daily range (where close is relative to high-low)
-    # 1 = close at high, 0 = close at low
-    df['close_position'] = (df['close'] - df['low']) / df['daily_range']
-    df['close_position'] = df['close_position'].fillna(0.5)  # Fill NaN with midpoint
+    # 1 = close at high, 0 = close at low. Avoid inf when daily_range=0
+    daily_range_safe = df['daily_range'].replace(0, np.nan)
+    df['close_position'] = (df['close'] - df['low']) / daily_range_safe
+    df['close_position'] = df['close_position'].fillna(0.5)  # Fill NaN/inf with midpoint
     
     logger.debug("Calculated price range features including ATR")
     
@@ -498,6 +502,13 @@ def build_features_single(
         
         # Calculate features
         df = calculate_all_features(df, feature_sets=feature_sets)
+        
+        # Sanitize: inf/-inf cause StandardScaler to fail. Replace with nan, then dropna handles them
+        df = df.replace([np.inf, -np.inf], np.nan)
+        
+        # Clip extreme values to avoid float64 overflow (e.g. > 1e10)
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        df[numeric_cols] = df[numeric_cols].clip(lower=-1e10, upper=1e10)
         
         # Drop NaN rows
         if drop_na:

@@ -75,3 +75,36 @@ consumer:
   - VNM
   - VJC
   - MWG
+
+# Aliases: tên công ty / từ khóa để match tin tức (ticker -> [tên])
+ticker_aliases:
+  ACB: [Á Châu, ngân hàng ACB]
+  BCM: [Bắc Cạn, khoáng sản BCM]
+  BID: [BIDV, ngân hàng BIDV]
+  BVH: [Bảo Việt]
+  CTG: [Vietinbank, VietinBank]
+  FPT: [FPT Corp, FPT Corporation, tập đoàn FPT]
+  GAS: [PV Gas, PetroVietnam Gas, PVN Gas]
+  GVR: [Cao su Việt Nam, VRG]
+  HDB: [HDBank, HD Bank]
+  HPG: [Hòa Phát, Hoa Phat]
+  MBB: [MB Bank, ngân hàng MB]
+  MSN: [Masan, Masan Group]
+  MWG: [Mobile World, Thế Giới Di Động, TGDD]
+  PLX: [Petrolimex, Xăng dầu]
+  POW: [PV Power, PetroVietnam Power]
+  SAB: [Sabeco, Bia Sài Gòn]
+  SSI: [SSI Securities, công ty chứng khoán SSI]
+  STB: [Sacombank, Saigon Thuong Tin]
+  TCB: [Techcombank, Techcombank]
+  TPB: [TPBank, TP Bank]
+  VCB: [Vietcombank, VietComBank]
+  VHM: [Vinhomes, Vinhomes]
+  VIB: [VIB Bank, ngân hàng VIB]
+  VIC: [Vingroup, Vingroup]
+  VJC: [Vietjet, VietJet Air]
+  VNM: [Vinamilk, Vinamilk]
+  VPB: [VPBank, VP Bank]
+  VRE: [Vincom Retail, Vincom]
+  SSB: [SeABank, SeaBank]
+  PDR: [Phát Đạt, Phat Dat]

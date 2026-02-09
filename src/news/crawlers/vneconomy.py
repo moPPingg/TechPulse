@@ -46,9 +46,10 @@ class VNEconomyNewsCrawler(BaseNewsCrawler):
         if path:
             url = f"{self.base_url}/{path}"
         else:
-            url = self.base_url + "/"
+            url = self.base_url.rstrip("/") + "/"
+        url = url.rstrip("/")  # VnEconomy returns 404 for .htm/ URLs
         try:
-            r = self.session.get(url, timeout=self.timeout)
+            r = self.session.get(url, timeout=self.timeout, allow_redirects=False)
             r.raise_for_status()
             soup = BeautifulSoup(r.content, "html.parser")
             # Articles are usually wrapped in <article> tags.
@@ -65,7 +66,11 @@ class VNEconomyNewsCrawler(BaseNewsCrawler):
 
     def _parse_item(self, item) -> Optional[ArticleRecord]:
         try:
-            a = item.find("a")
+            # Tiêu đề nằm trong h3 > a, không phải thẻ a đầu tiên (có thể bọc ảnh, rỗng)
+            h3 = item.find("h3")
+            if not h3:
+                return None
+            a = h3.find("a")
             if not a or not a.get("href"):
                 return None
             title = a.get_text(strip=True)
