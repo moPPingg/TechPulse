@@ -1,0 +1,137 @@
+{
+  "FPT": {
+    "symbol": "FPT",
+    "base_metrics": {
+      "LSTM": {
+        "accuracy": 0.4963235294117647,
+        "precision": 0.47924528301886793,
+        "recall": 0.4828897338403042,
+        "f1": 0.4810606060606061,
+        "roc_auc": 0.5114947972342123,
+        "confusion_matrix": [
+          [
+            143,
+            138
+          ],
+          [
+            136,
+            127
+          ]
+        ]
+      },
+      "iTransformer": {
+        "accuracy": 0.5165441176470589,
+        "precision": 0.5,
+        "recall": 0.030418250950570342,
+        "f1": 0.05734767025089606,
+        "roc_auc": 0.519654141239192,
+        "confusion_matrix": [
+          [
+            273,
+            8
+          ],
+          [
+            255,
+            8
+          ]
+        ]
+      }
+    },
+    "ensemble_metrics": {
+      "accuracy": 0.5165441176470589,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "roc_auc": 0.5175703286740728,
+      "confusion_matrix": [
+        [
+          281,
+          0
+        ],
+        [
+          263,
+          0
+        ]
+      ]
+    },
+    "comparison": {
+      "metrics_by_model": {
+        "LSTM": {
+          "accuracy": 0.4963235294117647,
+          "precision": 0.47924528301886793,
+          "recall": 0.4828897338403042,
+          "f1": 0.4810606060606061,
+          "roc_auc": 0.5114947972342123,
+          "confusion_matrix": [
+            [
+              143,
+              138
+            ],
+            [
+              136,
+              127
+            ]
+          ]
+        },
+        "iTransformer": {
+          "accuracy": 0.5165441176470589,
+          "precision": 0.5,
+          "recall": 0.030418250950570342,
+          "f1": 0.05734767025089606,
+          "roc_auc": 0.519654141239192,
+          "confusion_matrix": [
+            [
+              273,
+              8
+            ],
+            [
+              255,
+              8
+            ]
+          ]
+        },
+        "Ensemble": {
+          "accuracy": 0.5165441176470589,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0,
+          "roc_auc": 0.5175703286740728,
+          "confusion_matrix": [
+            [
+              281,
+              0
+            ],
+            [
+              263,
+              0
+            ]
+          ]
+        }
+      },
+      "best_per_metric": {
+        "accuracy": {
+          "model": "iTransformer",
+          "value": 0.5165441176470589
+        },
+        "precision": {
+          "model": "iTransformer",
+          "value": 0.5
+        },
+        "recall": {
+          "model": "LSTM",
+          "value": 0.4828897338403042
+        },
+        "f1": {
+          "model": "LSTM",
+          "value": 0.4810606060606061
+        },
+        "roc_auc": {
+          "model": "iTransformer",
+          "value": 0.519654141239192
+        }
+      }
+    },
+    "n_val": 544,
+    "n_test": 544
+  }
+}

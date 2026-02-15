@@ -3,7 +3,7 @@
  * Flow: Select ticker → Load full analysis (DATA → SIGNAL → RISK → DECISION → NEWS)
  */
 
-const VN30_FALLBACK = ["ACB","BCM","BID","BVH","CTG","FPT","GAS","GVR","HDB","HPG","MBB","MSN","MWG","PLX","POW","SAB","SSI","STB","TCB","TPB","VCB","VHM","VIB","VIC","VJC","VNM","VPB","VRE","SSB","PDR"];
+const VN30_FALLBACK = ["ACB", "BCM", "BID", "BVH", "CTG", "FPT", "GAS", "GVR", "HDB", "HPG", "MBB", "MSN", "MWG", "PLX", "POW", "SAB", "SSI", "STB", "TCB", "TPB", "VCB", "VHM", "VIB", "VIC", "VJC", "VNM", "VPB", "VRE", "SSB", "PDR"];
 
 let currentSymbol = "";
 let chartInstance = null;
@@ -70,12 +70,13 @@ function getChartDays() {
 }
 
 /** Chỉ hiển thị link nếu URL hợp lệ (http/https tuyệt đối), escape để tránh vỡ href / XSS */
-function safeNewsLink(url) {
+function safeNewsLink(url, source) {
   if (!url || typeof url !== "string") return "";
   const u = url.trim();
   if (!/^https?:\/\//i.test(u)) return "";
   const safe = u.replace(/"/g, "&quot;").replace(/</g, "%3C").replace(/>/g, "%3E");
-  return `<a href="${safe}" target="_blank" rel="noopener noreferrer" class="intel-impact-link">Đọc nguồn</a>`;
+  const s = source ? ` <span class="news-source">(${source})</span>` : "";
+  return `<a href="${safe}" target="_blank" rel="noopener noreferrer" class="intel-impact-link">Đọc chi tiết ${s}</a>`;
 }
 
 async function loadAnalysis(symbol) {
@@ -284,7 +285,7 @@ function renderAnalysis(rec, stock, chartData, newsIntel) {
             <p class="intel-impact-why">${item.why_it_matters || "—"}</p>
             <div class="intel-impact-meta">
               <span class="intel-impact-horizon">${item.time_horizon || "—"}</span>
-              ${safeNewsLink(item.url)}
+              ${safeNewsLink(item.url, item.source)}
             </div>
           </div>
         `).join("");
@@ -295,7 +296,7 @@ function renderAnalysis(rec, stock, chartData, newsIntel) {
             <div class="intel-impact-card">
               <p class="intel-impact-why">${(a.title || "").slice(0, 120)}${(a.title || "").length > 120 ? "…" : ""}</p>
               <div class="intel-impact-meta">
-                ${safeNewsLink(a.url)}
+                ${safeNewsLink(a.url, a.source)}
               </div>
             </div>
           `).join("");
@@ -367,7 +368,8 @@ function renderChart(chartData) {
       borderColor: "rgba(75, 85, 99, 0.4)",
       timeVisible: true,
       rightBarSpacing: 10,
-      barSpacing: 6,
+      barSpacing: 12, // Increased spacing for "gaps"
+      minBarSpacing: 2,
     },
     handleScroll: { vertTouchDrag: true, horzTouchDrag: true, mouseWheel: true, pressedMouseMove: true },
     width: w,
@@ -379,11 +381,10 @@ function renderChart(chartData) {
   const candle = chart.addCandlestickSeries({
     upColor: "#22c55e",
     downColor: "#ef4444",
-    borderUpColor: "#22c55e",
-    borderDownColor: "#ef4444",
+    borderVisible: false, // Disable border to prevent "touching" and make body narrower relative to space
     wickUpColor: "#22c55e",
     wickDownColor: "#ef4444",
-    borderVisible: true,
+    wickVisible: true,
     lastValueVisible: true,
     priceLineVisible: false,
   });
@@ -399,14 +400,15 @@ function renderChart(chartData) {
       color: isUp ? "#22c55e" : "#ef4444",
       lineWidth: 1,
       axisLabelVisible: true,
+      lineStyle: 2, // Dashed
     });
   }
 
   if (chartData.ma?.length) {
     const ma20 = chartData.ma.filter(d => d.ma_20 != null).map(d => ({ time: d.date, value: d.ma_20 }));
     const ma50 = chartData.ma.filter(d => d.ma_50 != null).map(d => ({ time: d.date, value: d.ma_50 }));
-    if (ma20.length) chart.addLineSeries({ color: "#3b82f6", lineWidth: 2, title: "MA20", lastValueVisible: true, priceLineVisible: false }).setData(ma20);
-    if (ma50.length) chart.addLineSeries({ color: "#f59e0b", lineWidth: 2, title: "MA50", lastValueVisible: true, priceLineVisible: false }).setData(ma50);
+    if (ma20.length) chart.addLineSeries({ color: "#3b82f6", lineWidth: 1, title: "MA20", lastValueVisible: true, priceLineVisible: false, crosshairMarkerVisible: false }).setData(ma20);
+    if (ma50.length) chart.addLineSeries({ color: "#f59e0b", lineWidth: 1, title: "MA50", lastValueVisible: true, priceLineVisible: false, crosshairMarkerVisible: false }).setData(ma50);
   }
 
   const tooltip = document.getElementById("chart-tooltip");
@@ -420,26 +422,59 @@ function renderChart(chartData) {
       tooltip.style.display = "none";
       return;
     }
-    const t = String(param.time).slice(0, 10);
-    const bar = map[t] || param.seriesData?.get(candle);
-    const o = bar?.open ?? 0;
-    const h = bar?.high ?? 0;
-    const l = bar?.low ?? 0;
-    const c = bar?.close ?? 0;
+    // Lấy dữ liệu OHLC từ series candle
+    let open = 0, high = 0, low = 0, close = 0;
+    const candleData = param.seriesData.get(candle);
+    if (candleData) {
+      open = candleData.open;
+      high = candleData.high;
+      low = candleData.low;
+      close = candleData.close;
+    }
+
+    // Lấy dữ liệu Volume từ series volume (nếu có - chưa implement ở dưới nhưng cứ để logic)
+    // Tạm thời nếu ko có volume series riêng thì lấy từ map (nếu map có)
+    const tStr = String(param.time); // yyyy-mm-dd
+    const bar = map[tStr.slice(0, 10)];
     const vol = bar?.volume ?? 0;
-    const dir = c >= o ? "up" : "down";
-    tooltip.innerHTML =
-      `<div class="tooltip-date">${t}</div>` +
-      `<div class="tooltip-row"><span class="tooltip-label">O</span><span class="tooltip-val">${fmt(o)}</span></div>` +
-      `<div class="tooltip-row"><span class="tooltip-label">H</span><span class="tooltip-val">${fmt(h)}</span></div>` +
-      `<div class="tooltip-row"><span class="tooltip-label">L</span><span class="tooltip-val">${fmt(l)}</span></div>` +
-      `<div class="tooltip-row"><span class="tooltip-label">C</span><span class="tooltip-val tooltip-${dir}">${fmt(c)}</span></div>` +
-      `<div class="tooltip-row"><span class="tooltip-label">Vol</span><span class="tooltip-val">${fmt(vol)}</span></div>`;
-    let left = param.point.x + 16;
-    let top = param.point.y + 16;
-    const rect = container.getBoundingClientRect();
-    if (left + 150 > rect.width) left = param.point.x - 166;
-    if (top + 165 > rect.height) top = param.point.y - 175;
+
+    const color = (close >= open) ? "#22c55e" : "#ef4444";
+    const dir = (close >= open) ? "up" : "down";
+
+    // Format tooltip
+    tooltip.innerHTML = `
+      <div class="tooltip-header">
+         <span class="tooltip-date">${tStr}</span>
+         <span class="tooltip-status tooltip-${dir}">${dir === 'up' ? '▲' : '▼'}</span>
+      </div>
+      <div class="tooltip-grid">
+        <div class="tooltip-item"><span class="tooltip-label">Open</span> <span class="tooltip-val">${fmt(open)}</span></div>
+        <div class="tooltip-item"><span class="tooltip-label">High</span> <span class="tooltip-val">${fmt(high)}</span></div>
+        <div class="tooltip-item"><span class="tooltip-label">Low</span>  <span class="tooltip-val">${fmt(low)}</span></div>
+        <div class="tooltip-item"><span class="tooltip-label">Close</span> <span class="tooltip-val tooltip-${dir}">${fmt(close)}</span></div>
+        <div class="tooltip-item tooltip-full"><span class="tooltip-label">Volume</span> <span class="tooltip-val">${fmt(vol)}</span></div>
+      </div>
+    `;
+
+    // Positioning
+    const w = tooltip.offsetWidth;
+    const h = tooltip.offsetHeight;
+    const containerRect = container.getBoundingClientRect();
+
+    let left = param.point.x + 15;
+    let top = param.point.y + 15;
+
+    if (left + w > containerRect.width) {
+      left = param.point.x - w - 15;
+    }
+    if (top + h > containerRect.height) {
+      top = param.point.y - h - 15;
+    }
+
+    // Ensure not overflowing top/left
+    left = Math.max(5, left);
+    top = Math.max(5, top);
+
     tooltip.style.left = left + "px";
     tooltip.style.top = top + "px";
     tooltip.style.display = "block";
@@ -486,7 +521,7 @@ async function loadSymbols() {
         return;
       }
     }
-  } catch (_) {}
+  } catch (_) { }
   if (symbolSelect) symbolSelect.innerHTML = VN30_FALLBACK.map(s => `<option value="${s}"${s === "FPT" ? " selected" : ""}>${s}</option>`).join("");
   renderSymbolList(VN30_FALLBACK);
 }

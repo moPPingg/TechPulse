@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TechPulse — Tài liệu học tập đầy đủ (LightGBM, LSTM, iTransformer, PatchTST, Stacking)</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; margin: 1rem 2rem; max-width: 900px; color: #1a1a1a; line-height: 1.6; }
+    h1 { font-size: 1.4rem; border-bottom: 2px solid #2563eb; padding-bottom: 0.5rem; margin-top: 2rem; }
+    h1:first-of-type { margin-top: 0; }
+    h2 { font-size: 1.15rem; margin-top: 1.5rem; color: #1e40af; }
+    h3 { font-size: 1.05rem; margin-top: 1.2rem; color: #334155; }
+    p { margin: 0.5rem 0; }
+    ul { margin: 0.5rem 0; padding-left: 1.5rem; }
+    li { margin: 0.25rem 0; }
+    table { width: 100%; border-collapse: collapse; margin: 0.75rem 0; font-size: 0.9rem; }
+    th, td { border: 1px solid #cbd5e1; padding: 0.5rem 0.75rem; text-align: left; vertical-align: top; }
+    th { background: #e0e7ff; font-weight: 600; }
+    tr:nth-child(even) { background: #f8fafc; }
+    pre, .pseudo { font-family: 'Consolas', monospace; font-size: 0.85rem; background: #f1f5f9; padding: 0.75rem; border-radius: 4px; white-space: pre-wrap; overflow-x: auto; margin: 0.75rem 0; border: 1px solid #e2e8f0; }
+    strong { color: #1e293b; }
+    .doc-section { margin-bottom: 2.5rem; }
+    nav { background: #f1f5f9; padding: 0.75rem 1rem; border-radius: 6px; margin-bottom: 1.5rem; }
+    nav a { margin-right: 1rem; color: #2563eb; }
+  </style>
+</head>
+<body>
+
+<nav id="toc">
+  <strong>Mục lục:</strong>
+  <a href="#lightgbm">1. LightGBM</a>
+  <a href="#lstm">2. LSTM</a>
+  <a href="#itransformer">3. iTransformer</a>
+  <a href="#patchtst">4. PatchTST</a>
+  <a href="#stacking">5. Stacking</a>
+</nav>
+
+<!-- ==================== LIGHTGBM ==================== -->
+<section class="doc-section" id="lightgbm">
+<h1>1. LightGBM Trend Pipeline — Line-by-Line Walkthrough for Beginners</h1>
+<p>This document explains <code>src/models/lightgbm_trend.py</code> slowly and concretely: what problem it solves, how the pipeline runs, each function's inputs/outputs and purpose, pseudocode for the whole flow, and three small reimplementation exercises.</p>
+
+<h2>1. What problem is this file solving?</h2>
+<p><strong>In one sentence:</strong> The file trains a <strong>classifier</strong> that predicts whether a stock's <strong>next-day return</strong> will be "up" or "down" (or up/neutral/down in 3-class mode), using <strong>today's features</strong> (and optionally news), so you can use it for trend signals or research.</p>
+<p><strong>Concretely:</strong></p>
+<ul>
+  <li>You have a table where each <strong>row = one trading day</strong> for one stock (e.g. FPT).</li>
+  <li>Each row has: <strong>date</strong>, and many <strong>features</strong> (e.g. returns, moving averages, RSI, volatility, volume, and optionally news scores).</li>
+  <li>You want to predict: <strong>tomorrow's</strong> move: up (1) or down (0), or up/neutral/down (2/1/0).</li>
+  <li>The file: loads that table (price features + optional news); defines which column is the target (next-day return) and which columns are features; splits data <strong>in time</strong> (no shuffling) into train / validation / test; converts continuous next-day return into trend labels (binary or 3-class); trains a <strong>LightGBM</strong> model, optionally tunes it, then evaluates it and gets feature importance.</li>
+</ul>
+<p>So the problem is: <strong>supervised classification of next-day stock trend from current-day (and optionally news) features</strong>, with a time-aware, production-style pipeline.</p>
+
+<h2>2. Pipeline in execution order</h2>
+<p>When you call <code>LightGBMTrendPipeline(...).run()</code>, things happen in this order:</p>
+<ol>
+  <li><strong>load_data()</strong> — Load the feature CSV for the symbol, optionally load news and merge by date. Decide which columns are features (store in <code>self.feature_cols</code>).</li>
+  <li><strong>split()</strong> — Split the full DataFrame into <code>train_df</code>, <code>val_df</code>, <code>test_df</code> by <strong>time</strong> (e.g. 60% / 20% / 20%), no shuffle.</li>
+  <li><strong>preprocess(train_df, val_df, test_df)</strong> — From each split, build <strong>X</strong> (feature matrix) and <strong>y</strong> (target). Target = next-day return, then converted to trend labels. Scale features using <strong>only</strong> the train set; fill missing values. Store X_train, y_train, X_val, y_val, X_test, y_test (and scaler).</li>
+  <li><strong>train()</strong> (or <strong>run_tuning()</strong> then <strong>train()</strong>) — Train LightGBM on (X_train, y_train), optionally use (X_val, y_val) for early stopping. Store the trained model in <code>self.model</code>.</li>
+  <li><strong>evaluate()</strong> — Predict on X_test, compare to y_test, compute accuracy, precision, recall, F1, ROC-AUC, confusion matrix. Store in <code>self.metrics</code>.</li>
+  <li><strong>get_feature_importance()</strong> — Ask LightGBM for each feature's importance (e.g. gain). Store in <code>self.importance_df</code>.</li>
+</ol>
+<p>So the <strong>execution order</strong> is: load → split → preprocess → train (maybe tune first) → evaluate → importance.</p>
+
+<h2>3. Each function: what goes in, what comes out, why it exists</h2>
+
+<h3>Top of file (lines 15–44)</h3>
+<ul>
+  <li><strong>from __future__ import annotations</strong> — Lets you use type hints like <code>-&gt; pd.DataFrame</code> and forward references (e.g. <code>"lgb.LGBMModel"</code>) without runtime errors in older Python.</li>
+  <li><strong>Imports</strong> — logging, Path, typing, numpy, pandas, optional lightgbm, StandardScaler, and sklearn metrics. <strong>In:</strong> nothing at call time. <strong>Out:</strong> you have the names available. <strong>Why:</strong> the rest of the code uses these.</li>
+  <li><strong>logger = logging.getLogger(__name__)</strong> — <strong>In:</strong> nothing. <strong>Out:</strong> a logger named after this module. <strong>Why:</strong> so you can log (e.g. "Loaded 2720 rows…") without printing.</li>
+  <li><strong>DEFAULT_RETURN_COL = "return_1d"</strong> — <strong>In:</strong> nothing. <strong>Out:</strong> the default column name used as the "return" that becomes the next-day target. <strong>Why:</strong> one place to change if your CSV uses another name.</li>
+</ul>
+
+<h3>1) Data loading and merge</h3>
+<p><strong>load_price_features(symbol, features_dir, from_date=None, to_date=None)</strong></p>
+<ul>
+  <li><strong>In:</strong> symbol (e.g. "FPT"); features_dir (folder path where CSVs live); from_date, to_date (optional string dates to filter rows).</li>
+  <li><strong>Out:</strong> One pandas DataFrame: one row per date, columns = date + all CSV columns. Sorted by date, index reset.</li>
+  <li><strong>Why:</strong> The model needs one table per symbol; this is the single entry point to get that table from disk and optional date range.</li>
+</ul>
+<p><strong>load_news_daily_features(symbol, from_date, to_date, config_path=None)</strong></p>
+<ul>
+  <li><strong>In:</strong> Symbol and date range; optional config path for the news engine.</li>
+  <li><strong>Out:</strong> DataFrame with at least date and numeric columns (e.g. composite_score, article_count, avg_sentiment, avg_relevance). Empty DataFrame if no data.</li>
+  <li><strong>Why:</strong> So you can add "news" as extra features per day; the pipeline can run with or without this.</li>
+</ul>
+<p><strong>merge_multimodal(price_df, news_df, news_prefix="news_")</strong></p>
+<ul>
+  <li><strong>In:</strong> price_df (table from load_price_features); news_df (table from load_news_daily_features); news_prefix (string to prepend to news column names).</li>
+  <li><strong>Out:</strong> One DataFrame: all columns of price_df plus news columns (with prefix). Rows aligned by date (left-join: keep every price date; missing news → NaN).</li>
+  <li><strong>Why:</strong> So price and news live in one table; prefix avoids name clashes.</li>
+</ul>
+
+<h3>2) Target and feature columns</h3>
+<p><strong>build_trend_target(df, return_col, threshold_up, threshold_down, n_classes)</strong></p>
+<ul>
+  <li><strong>In:</strong> df (DataFrame with at least return_col); return_col; threshold_up, threshold_down (for 3-class); n_classes (2 or 3).</li>
+  <li><strong>Out:</strong> A 1D numpy array of integer labels. Length = len(df) - 1 (last row has no "next" return). Binary: 1 if next-day return &gt; threshold_up, else 0. 3-class: 2=up, 1=neutral, 0=down.</li>
+  <li><strong>Why:</strong> The model needs labels (0/1 or 0/1/2), not raw returns. This converts "next-day return" into those labels. Uses shift(-1) so row i's label = return at i+1.</li>
+</ul>
+<p><strong>get_feature_columns_for_trend(df, exclude=None)</strong></p>
+<ul>
+  <li><strong>In:</strong> full merged DataFrame; exclude (optional list of extra column names to skip).</li>
+  <li><strong>Out:</strong> List of column names that are numeric and not in the "do not use" set (date, open, high, low, close, volume, ticker, plus exclude).</li>
+  <li><strong>Why:</strong> You must not use date as a feature, and usually not raw price/volume. This centralizes "what is a feature" so the rest of the pipeline stays consistent.</li>
+</ul>
+
+<h3>3) Time-aware splitting</h3>
+<p><strong>time_aware_split(df, date_col, train_ratio, val_ratio, test_ratio, purge_gap)</strong></p>
+<ul>
+  <li><strong>In:</strong> df (full DataFrame); date_col; train_ratio, val_ratio, test_ratio (e.g. 0.6, 0.2, 0.2, must sum to 1); purge_gap (optional rows to drop between splits).</li>
+  <li><strong>Out:</strong> Three DataFrames: train_df, val_df, test_df. Consecutive in time; no shuffle.</li>
+  <li><strong>Why:</strong> In time series you must not use future data in training. So split by time and never shuffle.</li>
+</ul>
+
+<h3>4) Preprocessing</h3>
+<p><strong>preprocess_splits(train_df, val_df, test_df, feature_cols, return_col, fit_scaler_on_train, fill_missing)</strong></p>
+<ul>
+  <li><strong>In:</strong> The three split DataFrames; feature_cols; return_col; fit_scaler_on_train; fill_missing.</li>
+  <li><strong>Out:</strong> X_train, y_train, X_val, y_val, X_test, y_test (numpy arrays); scaler. y_* here are continuous (next-day return); the pipeline later converts them to trend labels with continuous_to_trend_labels. Internally it drops the last row of each split, fills NaN, replaces inf, clips huge values, then optionally scales.</li>
+  <li><strong>Why:</strong> Models need numeric X and y; scaling only on train avoids leakage; handling NaN/inf keeps training stable.</li>
+</ul>
+<p><strong>continuous_to_trend_labels(y_continuous, threshold_up, threshold_down, n_classes)</strong></p>
+<ul>
+  <li><strong>In:</strong> y_continuous (1D array of next-day returns); same thresholds and n_classes.</li>
+  <li><strong>Out:</strong> 1D array of integers (0/1 for binary, or 0/1/2 for 3-class).</li>
+  <li><strong>Why:</strong> Preprocessing gives continuous y; the classifier needs discrete labels. Same mapping as build_trend_target but on an already-extracted y array.</li>
+</ul>
+
+<h3>5) Training, evaluation, importance</h3>
+<p><strong>train_lightgbm(...)</strong> — <strong>In:</strong> Train (and optionally val) feature matrices and labels; optional feature names, params, rounds, early stopping, n_classes. <strong>Out:</strong> A trained LightGBM model object. <strong>Why:</strong> Single place to configure and run LightGBM so the pipeline and tuning share the same setup.</p>
+<p><strong>evaluate_trend(y_true, y_pred, y_prob, n_classes)</strong> — <strong>In:</strong> y_true, y_pred, y_prob (optional), n_classes. <strong>Out:</strong> Dict: accuracy, precision, recall, f1, roc_auc, confusion_matrix. <strong>Why:</strong> One consistent way to measure trend classification so you can compare models or runs.</p>
+<p><strong>get_feature_importance(model, importance_type, feature_names)</strong> — <strong>In:</strong> Trained LightGBM model, type (e.g. "gain"), list of feature names. <strong>Out:</strong> DataFrame with columns feature and importance, sorted by importance descending. <strong>Why:</strong> So you can see which inputs the model uses most.</p>
+
+<h3>6) Hyperparameter tuning</h3>
+<p><strong>tune_lightgbm(...)</strong> — <strong>In:</strong> Same data as training; number of Optuna trials and optional timeout. <strong>Out:</strong> A tuple: (best_params dict, retrained LightGBM model). <strong>Why:</strong> To search learning rate, num_leaves, feature_fraction, etc., and return one best model for the pipeline to use.</p>
+
+<h3>7) Pipeline class</h3>
+<p><strong>LightGBMTrendPipeline</strong> — <strong>In (at construction):</strong> Symbol, features_dir, date range, include_news, return column, thresholds, n_classes, split ratios, purge_gap, scale or not, lgb params, tune or not, tune_trials. <strong>Out (over time):</strong> After run(): self.df, self.feature_cols, self.X_train, self.y_train, …, self.model, self.metrics, self.importance_df. <strong>Why:</strong> One object that holds config and state so you can call load_data(), split(), preprocess(), train(), evaluate(), get_feature_importance() in order (or run() to do all).</p>
+
+<h2>4. Whole pipeline in simple pseudocode</h2>
+<pre>FUNCTION run():
+    df = load_price_features(symbol, features_dir, from_date, to_date)
+    IF include_news:
+        news_df = load_news_daily_features(symbol, from_date, to_date)
+        df = merge_multimodal(df, news_df)
+
+    feature_cols = get_feature_columns_for_trend(df, exclude=[return_col])
+
+    train_df, val_df, test_df = time_aware_split(df, train_ratio, val_ratio, test_ratio, purge_gap)
+
+    (X_train, y_train_cont, X_val, y_val_cont, X_test, y_test_cont, scaler) =
+        preprocess_splits(train_df, val_df, test_df, feature_cols, return_col)
+
+    y_train = continuous_to_trend_labels(y_train_cont, threshold_up, threshold_down, n_classes)
+    y_val   = continuous_to_trend_labels(y_val_cont,   threshold_up, threshold_down, n_classes)
+    y_test  = continuous_to_trend_labels(y_test_cont,  threshold_up, threshold_down, n_classes)
+
+    IF tune:
+        best_params, model = tune_lightgbm(X_train, y_train, X_val, y_val, ...)
+    ELSE:
+        model = train_lightgbm(X_train, y_train, X_val, y_val, ...)
+
+    y_pred = model.predict(X_test)
+    y_prob = (same as y_pred for probabilities)
+    metrics = evaluate_trend(y_test, y_pred, y_prob, n_classes)
+
+    importance_df = get_feature_importance(model, feature_names=feature_cols)
+
+    RETURN metrics</pre>
+<p>So: load → merge (optional) → pick features → split in time → preprocess (X, y_continuous, scale) → turn y_continuous into labels → train (or tune then train) → evaluate on test → importance.</p>
+
+<h2>5. Three small coding exercises</h2>
+<p>These ask you to reimplement <strong>parts</strong> of this file from scratch (no copy-paste from the real code). Use only pandas/numpy and standard Python unless stated.</p>
+
+<h3>Exercise 1: Build trend labels from a return column</h3>
+<p><strong>Goal:</strong> Recreate the core of build_trend_target and continuous_to_trend_labels.</p>
+<ul>
+  <li><strong>Input:</strong> A 1D numpy array returns of length N (e.g. daily returns), and two floats threshold_up and threshold_down (e.g. 0.0 and -0.001).</li>
+  <li><strong>Output:</strong> A 1D numpy array labels of length N − 1 of integers: for each index i in 0 .. N-2, the label at i is based on returns[i+1] (the "next day" return): If returns[i+1] &gt; threshold_up → 1 (up). If returns[i+1] &lt; threshold_down → 0 (down). Otherwise → 0 for binary, or extend later to 1 for "neutral" in 3-class.</li>
+  <li><strong>Constraint:</strong> No pandas; only numpy. No shift; use indexing (e.g. returns[1:]).</li>
+  <li><strong>Check:</strong> For returns = np.array([0.01, -0.005, 0.02, 0.0]) and thresholds 0.0 and -0.001, your labels for "next day" should be: down, up, neutral (or down if you do binary only).</li>
+</ul>
+
+<h3>Exercise 2: Time-based train/val/test split</h3>
+<p><strong>Goal:</strong> Recreate the idea of time_aware_split without purge.</p>
+<ul>
+  <li><strong>Input:</strong> A pandas DataFrame df with a column date_col (e.g. "date"), and three floats train_ratio, val_ratio, test_ratio that sum to 1.0 (e.g. 0.6, 0.2, 0.2).</li>
+  <li><strong>Output:</strong> Three DataFrames train_df, val_df, test_df, which are contiguous in time and non-overlapping. Sort by date_col, then take the first 60% of rows as train, next 20% as val, last 20% as test. No shuffle.</li>
+  <li><strong>Constraint:</strong> Use only pandas (e.g. sort_values, iloc, or head/tail). No external split helpers.</li>
+  <li><strong>Check:</strong> For a DataFrame of 100 rows, train should have 60, val 20, test 20; the last date of train should be before the first date of val, and same for val vs test.</li>
+</ul>
+
+<h3>Exercise 3: "Next-day" X and y from one DataFrame</h3>
+<p><strong>Goal:</strong> Recreate the idea of _to_xy inside preprocess_splits: build X and y so that row i of X predicts the value at i+1.</p>
+<ul>
+  <li><strong>Input:</strong> A pandas DataFrame df with numeric columns only (e.g. 5 columns), and the name of one column target_col (e.g. "return_1d"). Assume no NaN for simplicity.</li>
+  <li><strong>Output:</strong> Two numpy arrays: X shape (N-1, num_features) where num_features = len(columns) - 1 (all columns except the target). Row i of X = row i of df (excluding target). y shape (N-1,). Element i of y = value of target_col at row i+1 of df (the "next day").</li>
+  <li><strong>Constraint:</strong> No shift; use integer indexing (e.g. df.iloc[i+1][target_col] or vectorized slices like df[target_col].values[1:]).</li>
+  <li><strong>Check:</strong> For a small df of 4 rows, X should have 3 rows and y 3 elements; y[0] should equal df[target_col].iloc[1].</li>
+</ul>
+<p>Doing these three exercises will fix in your mind: (1) how next-day targets and trend labels are built, (2) how time splits work, and (3) how X and y are aligned for "predict next day" without using shift.</p>
+</section>
+
+<!-- ==================== LSTM ==================== -->
+<section class="doc-section" id="lstm">
+<h1>2. LSTM Trend Pipeline — Beginner's Guide</h1>
+<p>This doc teaches <code>src/models/lstm_trend.py</code> assuming you only know basic Python and numpy. You'll see: what sliding windows are, what the Dataset does, how the LSTM model is built, how training and evaluation work, then a full pipeline in pseudocode and three exercises.</p>
+
+<h2>1. Sliding windows</h2>
+<h3>The idea in plain language</h3>
+<p>You have a <strong>table of days</strong>: each row is one day, each column is a number (return, RSI, volume, etc.). You want to predict <strong>tomorrow's trend</strong> (up or down).</p>
+<p>The LSTM doesn't take "one row = one sample" like a normal table. It takes <strong>a sequence of rows</strong> = one sample. So:</p>
+<ul>
+  <li><strong>One sample</strong> = the last seq_len days (e.g. 20 days) of features.</li>
+  <li><strong>Label for that sample</strong> = trend of the <strong>next</strong> day (day 21).</li>
+</ul>
+<p>That's a <strong>sliding window</strong>: you "slide" a window of 20 days along the timeline; each position of the window is one training example.</p>
+
+<h3>Picture (with seq_len = 3)</h3>
+<p>Suppose the table has 6 days and 2 features (A, B):</p>
+<pre>Row:  0    1    2    3    4    5
+      Day0 Day1 Day2 Day3 Day4 Day5</pre>
+<ul>
+  <li><strong>Window 1:</strong> rows 0, 1, 2 → features for Day0, Day1, Day2. <strong>Label</strong> = trend of Day3 (next day).</li>
+  <li><strong>Window 2:</strong> rows 1, 2, 3 → Day1, Day2, Day3. <strong>Label</strong> = trend of Day4.</li>
+  <li><strong>Window 3:</strong> rows 2, 3, 4 → Day2, Day3, Day4. <strong>Label</strong> = trend of Day5.</li>
+</ul>
+<p>So you get <strong>3 samples</strong>. In general, with T rows and window length seq_len, you get <strong>T − seq_len − 1</strong> samples (the "−1" because the last row has no "next day" to predict).</p>
+
+<h3>What the code actually does</h3>
+<ul>
+  <li><strong>Input:</strong> A DataFrame full_df with columns feature_cols and a column return_col (e.g. return_1d).</li>
+  <li><strong>For each valid index i:</strong> Take rows i - seq_len + 1 to i (inclusive) from the feature matrix → one window of shape (seq_len, n_features). The <strong>target</strong> is the next-day return at row i + 1; that return is then turned into a trend label (0 or 1 for binary: down/up).</li>
+  <li><strong>Output:</strong> X_all shape (n_samples, seq_len, n_features) — many windows stacked. y_all shape (n_samples,) — one integer label per window.</li>
+</ul>
+<p>So: <strong>sliding window = one sample is a chunk of consecutive days; the label is the trend of the day right after that chunk.</strong></p>
+
+<h2>2. Dataset</h2>
+<h3>What a "Dataset" is (PyTorch idea)</h3>
+<p>In PyTorch, a <strong>Dataset</strong> is an object that: (1) Knows how many samples it has (__len__). (2) Given an index idx, returns one sample and its label (__getitem__(idx)). So the training loop doesn't touch the big arrays directly; it says "give me batch 0", "give me batch 1", etc.</p>
+
+<h3>SlidingWindowDataset in this file</h3>
+<ul>
+  <li><strong>In:</strong> Two numpy arrays: X shape (n_samples, seq_len, n_features); y shape (n_samples,) — integer labels (0 or 1 for binary).</li>
+  <li><strong>Out:</strong> When you call dataset[idx], you get the idx-th window and the idx-th label, as PyTorch tensors.</li>
+</ul>
+<p>So the Dataset is just a thin wrapper: "I hold X and y; when you ask for index idx, I return (X[idx], y[idx]) as tensors."</p>
+<p><strong>Why we need it:</strong> PyTorch's DataLoader expects a Dataset. The DataLoader groups several indices into a batch (e.g. 32 samples at a time), can shuffle indices (only for training), and gives the training loop batches of (X_batch, y_batch) instead of one sample at a time. So: <strong>Dataset = "list" of (window, label) pairs; DataLoader = "give me batches from that list."</strong></p>
+
+<h2>3. Model architecture</h2>
+<p><strong>In one sentence:</strong> One sequence in → one vector out (hidden state) → one linear layer → one vector of scores (logits) per class.</p>
+<ol>
+  <li><strong>Input shape:</strong> (batch_size, seq_len, n_features). Example: (32, 20, 37).</li>
+  <li><strong>LSTM:</strong> It reads the sequence step by step (day 0, then day 1, …, then day 19). Inside it keeps a hidden state that updates at each step. It outputs a vector at each step. We only keep the <strong>last</strong> one: the hidden state after seeing all 20 days. So after the LSTM: shape (batch_size, hidden_size) — one vector per sample (e.g. 64 numbers).</li>
+  <li><strong>Linear layer:</strong> hidden_size → num_classes. So (batch_size, 64) → (batch_size, 2) for binary. Those 2 numbers are <strong>logits</strong> (scores for "down" and "up"), not yet probabilities.</li>
+  <li><strong>Output:</strong> The model returns logits of shape (batch_size, num_classes). To get probabilities, we apply softmax later (in the evaluation/prediction code). To get predicted class, we take argmax. No softmax inside the model; the loss function (cross-entropy) works with logits directly.</li>
+</ol>
+<pre>input (batch, seq_len, n_features)
+    → LSTM
+    → take last step (batch, hidden_size)
+    → Linear
+    → logits (batch, num_classes)</pre>
+
+<h2>4. Training loop</h2>
+<p><strong>What we're optimizing:</strong> We want the model's logits to be good: when the true label is 1 (up), the logit for class 1 should be higher. We measure "how wrong" the logits are with <strong>cross-entropy loss</strong>: one number per batch; smaller = better.</p>
+<p><strong>One epoch:</strong> (1) Set model to training mode. (2) For each batch (X_batch, y_batch): put batch on device; forward → logits; loss = cross_entropy(logits, y_batch); backward; optimizer.step(); add loss to running total. (3) After all batches: average train loss = total_loss / number_of_batches.</p>
+<p><strong>Validation (after each epoch):</strong> Set model to eval mode. Do not update parameters; only compute loss and accuracy. For each validation batch: forward → logits; loss for that batch; predicted class = argmax(logits), count how many equal the true label. Average validation loss; accuracy = correct / total.</p>
+<p><strong>Early stopping:</strong> We keep a copy of the model weights whenever validation loss improves (gets lower). If validation loss does not improve for early_stopping_patience epochs in a row, we stop training. At the end we restore the best saved weights. So the training loop = <strong>repeat: train one epoch → validate → maybe save best weights → maybe stop; then load best weights.</strong></p>
+
+<h2>5. Evaluation</h2>
+<p>We need: true labels (y_test); predicted labels; predicted probabilities (optional but useful for ROC-AUC). <strong>predict_lstm</strong>: Set model to eval mode and turn off gradient computation. Split test set into batches. For each batch: forward → logits; softmax(logits) → probabilities; store. Concatenate all batches → one big array of probabilities. Predicted class = argmax over classes. So we get y_pred shape (n_test,) and y_prob shape (n_test, 2). The file reuses the same evaluation function as the LightGBM pipeline: evaluate_trend(y_true, y_pred, y_prob, n_classes). <strong>In:</strong> True labels, predicted labels, predicted probabilities (optional), number of classes. <strong>Out:</strong> A dict with accuracy, precision, recall, f1, roc_auc, confusion_matrix.</p>
+
+<h2>6. Full training pipeline in beginner pseudocode</h2>
+<pre>FUNCTION run():
+    // ----- 1. Load data -----
+    df = load price CSV for symbol from features_dir (optional: filter by from_date, to_date)
+    IF include_news:
+        news_df = load news features for symbol and date range
+        df = merge df with news_df on date (left join, add prefix to news columns)
+    feature_cols = list of numeric column names to use as features (exclude date, raw price/volume, return column)
+
+    // ----- 2. Split in time -----
+    Sort df by date
+    train_df = first 60% of rows
+    val_df   = next  20% of rows
+    test_df  = last  20% of rows
+
+    // ----- 3. Build sliding windows -----
+    full = concatenate train_df, val_df, test_df in order (one big table)
+    M = full[feature_cols] as a matrix, fill NaN, clip huge values
+    next_return = for each row, the return of the NEXT row (shift -1); last row has no next
+    X_list = []
+    y_cont_list = []
+    FOR i FROM (seq_len - 1) TO (length(full) - 2):
+        window = M[ row (i - seq_len + 1) to row i ]   // shape (seq_len, n_features)
+        append window to X_list
+        append next_return[i+1] to y_cont_list
+    X_all = stack X_list into one array   // shape (n_samples, seq_len, n_features)
+    y_cont = array of y_cont_list
+    y_all = turn y_cont into labels: if return > threshold_up then 1 else 0 (or 0/1/2 for 3-class)
+    Split X_all and y_all into train / val / test by index ranges (so no shuffle, same time order)
+    → X_train, y_train, X_val, y_val, X_test, y_test
+
+    // ----- 4. Scale features -----
+    Fit StandardScaler on X_train (flatten to 2D, fit, then reshape back)
+    Transform X_train, X_val, X_test with that scaler (same shape in and out)
+
+    // ----- 5. Create Dataset and DataLoader -----
+    train_dataset = SlidingWindowDataset(X_train, y_train)
+    train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
+    val_dataset = SlidingWindowDataset(X_val, y_val)
+    val_loader = DataLoader(val_dataset, batch_size=32, shuffle=False)
+
+    // ----- 6. Create model and optimizer -----
+    model = LSTMTrendClassifier(...)
+    optimizer = Adam(model.parameters(), lr=0.01)
+    criterion = CrossEntropyLoss()
+    best_val_loss = infinity, best_model_weights = None, patience_counter = 0
+
+    // ----- 7. Training loop -----
+    FOR epoch = 1 TO epochs:
+        model.train()
+        train_loss_sum = 0
+        FOR each batch (xb, yb) in train_loader:
+            logits = model(xb)
+            loss = criterion(logits, yb)
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            train_loss_sum += loss value
+        train_loss = train_loss_sum / number of batches
+        IF we have val_loader:
+            model.eval()
+            val_loss_sum = 0, correct = 0, total = 0
+            FOR each batch (xb, yb) in val_loader (no gradients):
+                logits = model(xb)
+                val_loss_sum += criterion(logits, yb)
+                pred = argmax(logits)
+                correct += count where pred == yb
+                total += batch size
+            val_loss = val_loss_sum / number of val batches
+            val_accuracy = correct / total
+            IF val_loss < best_val_loss:
+                best_val_loss = val_loss
+                best_model_weights = copy of model weights
+                patience_counter = 0
+            ELSE:
+                patience_counter += 1
+            IF patience_counter >= early_stopping_patience:
+                break
+    Load best_model_weights into model (restore best checkpoint)
+
+    // ----- 8. Evaluate on test -----
+    model.eval()
+    For test set in batches:
+        logits = model(X_test_batch)
+        probs = softmax(logits)
+        collect all probs and pred = argmax(probs)
+    y_pred = all predicted labels
+    y_prob = all predicted probabilities
+    metrics = evaluate_trend(y_test, y_pred, y_prob, n_classes)
+
+    RETURN metrics</pre>
+
+<h2>7. Three exercises</h2>
+<h3>Exercise 1: Sliding windows from a 2D array</h3>
+<p><strong>Goal:</strong> Build the same "sliding window" samples we use for the LSTM, using only numpy. <strong>Input:</strong> M shape (T, F); seq_len. <strong>Output:</strong> X shape (N, seq_len, F) where N = T - seq_len; X[k] = M[k : k+seq_len]. <strong>Constraint:</strong> Single loop and np.stack or list of slices. No pandas. <strong>Check:</strong> For M shape (10, 2) and seq_len=3, X should have shape (7, 3, 2); X[0] = M[0:3], X[1] = M[1:4], etc.</p>
+
+<h3>Exercise 2: "Next-day" labels for each window</h3>
+<p><strong>Goal:</strong> From the same table, build the target for each window: the value of one column on the next row after the window ends. <strong>Input:</strong> M shape (T, F); next_col (column index); seq_len. <strong>Output:</strong> y 1D array of length T - seq_len - 1. For index k, y[k] = M[k + seq_len, next_col]. <strong>Constraint:</strong> Use indexing only, no pandas shift. <strong>Check:</strong> For T=6, seq_len=2, y has length 3; y[0] = M[2, next_col], y[1] = M[3, next_col], y[2] = M[4, next_col].</p>
+
+<h3>Exercise 3: Simple "accuracy" and "confusion" from two label arrays</h3>
+<p><strong>Goal:</strong> Recreate the idea of accuracy and confusion matrix without using sklearn. <strong>Input:</strong> y_true, y_pred 1D arrays of integers (0 or 1), length N. <strong>Output:</strong> accuracy = (number where y_true == y_pred) / N; confusion 2×2: confusion[i][j] = count where true label i and predicted j. <strong>Constraint:</strong> Only loop and conditionals; no sklearn.metrics. <strong>Check:</strong> For y_true = [0, 1, 1, 0], y_pred = [0, 1, 0, 0], accuracy = 0.75; confusion = [[2, 0], [1, 1]].</p>
+</section>
+
+<!-- ==================== iTRANSFORMER ==================== -->
+<section class="doc-section" id="itransformer">
+<h1>3. iTransformer Trend — Beginner's Guide</h1>
+<p>This doc teaches <code>src/models/itransformer_trend.py</code> step by step: what iTransformer is, why we "invert" time and features, a walk through every class and function, the forward pass in pseudocode, and how it compares to LSTM and a normal Transformer.</p>
+
+<h2>1. What is iTransformer, intuitively?</h2>
+<p><strong>The problem we have:</strong> You have a window of time (e.g. 20 days), and each day you have several numbers (features): return, RSI, volume, volatility, etc. So one sample is a table: Rows = time (day 0 … day 19). Columns = variables (return, RSI, volume, …). You want to predict one thing at the end (e.g. "will tomorrow go up or down?").</p>
+<p><strong>Two natural ways to use a Transformer:</strong> A Transformer takes a sequence of tokens and lets each token "look at" the others (self-attention). So you must decide: what is one token?</p>
+<ul>
+  <li><strong>Option A — time as tokens:</strong> One token = one time step (one day). So you have 20 tokens; each token is a vector that summarizes that day. The Transformer then mixes across time. This is the normal time-series Transformer: sequence length = time.</li>
+  <li><strong>Option B — variables as tokens (iTransformer):</strong> One token = one variable (one feature). So you have 37 tokens; each token is a vector that summarizes that variable over the whole window (e.g. the 20 values of "return" projected to a vector). The Transformer then mixes across variables. This is iTransformer: sequence length = number of features; time is inside each token.</li>
+</ul>
+<p><strong>So what is iTransformer in one sentence?</strong> iTransformer is a Transformer that treats each variable (each feature) as one token, and each token is the whole time series of that variable in the window, projected into a vector. So the model attends over features, not over time steps.</p>
+
+<h2>2. Why invert: time vs feature as tokens?</h2>
+<p><strong>Why not always use "time as tokens"?</strong> Sequence length = time (e.g. 20 or 60). Attention is quadratic in sequence length. The meaning of each token is "one day, all features mixed together." So the model is mainly learning temporal relationships.</p>
+<p><strong>What we might care about more:</strong> In finance, relationships between variables are central (e.g. "when volume spikes and RSI is high, return tends to…"). If variables are tokens, sequence length = number of features (e.g. 37). Each token = "this variable's story over the last 20 days." Attention is 37×37: each variable looks at every other variable. The temporal story is not lost: it's inside each token. The linear layer Linear(seq_len, d_model) takes the 20 values of, say, "return" and compresses them into one d_model-sized vector.</p>
+<p><strong>Why "invert" then?</strong> Normal: tokens = time steps → attention over time. Inverted: tokens = variables → attention over variables (and time is encoded inside each token). We invert so that the Transformer's expensive attention is used for variable–variable relationships, while the temporal pattern of each variable is encoded by a simple linear projection per variable.</p>
+
+<h2>3. Walk through every class and function</h2>
+<h3>InvertedEmbedding</h3>
+<p><strong>What it is:</strong> The layer that turns "time series per variable" into "one vector per variable" (one token per variable). <strong>__init__(seq_len, n_channels, d_model):</strong> Creates self.proj = nn.Linear(seq_len, d_model). Each variable's 1D series of length seq_len is mapped to a vector of size d_model. <strong>forward(x):</strong> In: x shape (B, T, C). Step 1: x = x.transpose(1, 2) → (B, C, T). Step 2: return self.proj(x) → (B, C, d_model). Out: (B, C, d_model) — C tokens, each of dimension d_model.</p>
+
+<h3>iTransformerTrendClassifier</h3>
+<p><strong>What it is:</strong> Full model: invert → Transformer over variables → pool → classify. <strong>__init__:</strong> Creates self.embed (InvertedEmbedding), self.transformer (stack of TransformerEncoderLayer), self.head (nn.Linear(d_model, num_classes)). <strong>forward(x):</strong> In: (B, T, C). Step 1: x = self.embed(x) → (B, C, d_model). Step 2: x = self.transformer(x) → (B, C, d_model). Step 3: x = x.mean(dim=1) → (B, d_model). Step 4: return self.head(x) → (B, num_classes). Out: (B, num_classes) logits.</p>
+
+<h3>train_itransformer_trend(...)</h3>
+<p><strong>In:</strong> model; X_train, y_train; optional X_val, y_val; device, epochs, batch_size, lr, early_stopping_patience, verbose. <strong>What it does:</strong> Puts model on device, creates Adam and CrossEntropyLoss. Builds SlidingWindowDataset and DataLoader (shuffle=True for train). For each epoch: train (forward, loss, backward, step); if val: eval, val loss and accuracy; if val loss improves save weights and reset patience; if patience >= early_stopping_patience break. After loop, load best weights. <strong>Out:</strong> history dict (train_loss, val_loss, val_accuracy per epoch).</p>
+
+<h3>predict_itransformer(model, X, device, batch_size)</h3>
+<p><strong>In:</strong> Trained model, X shape (n_samples, seq_len, n_features), device, batch size. <strong>What it does:</strong> Eval mode, no gradients. Split X into batches; for each batch: tensor → forward → softmax → store probabilities. Concatenate; pred = argmax. <strong>Out:</strong> preds (integer labels), probs (probabilities per class).</p>
+
+<h3>iTransformerTrendPipeline</h3>
+<p><strong>load_data():</strong> load_price_features, optionally merge news, get_feature_columns_for_trend. <strong>split():</strong> time_aware_split. <strong>build_sequences(train_df, val_df, test_df):</strong> build_sliding_windows_from_splits, scale_sequences. <strong>train():</strong> Build iTransformerTrendClassifier, call train_itransformer_trend. <strong>evaluate():</strong> predict_itransformer, then evaluate_trend. <strong>run():</strong> load_data → split → build_sequences → train → evaluate.</p>
+
+<h2>4. Model forward pass in pseudocode</h2>
+<pre>FUNCTION forward(x):
+    // x shape: (B, T, C). Example: (32, 20, 37)
+    // ----- Inverted embedding -----
+    x = transpose(x, so that shape is (B, C, T))   // (32, 37, 20)
+    x = Linear_layer(x)   // (B, C, d_model) = (32, 37, 64)
+    // ----- Transformer encoder -----
+    FOR each layer in transformer_layers:
+        x = self_attention(x)
+        x = feed_forward(x)
+    // ----- Pool -----
+    x = mean(x, over dimension 1)   // (B, d_model)
+    // ----- Classification head -----
+    logits = Linear_head(x)   // (B, num_classes)
+    RETURN logits</pre>
+<p>So in one line: transpose → linear (time → d_model) → Transformer over C tokens → mean over C → linear → logits.</p>
+
+<h2>5. Compare to LSTM and normal Transformer</h2>
+<table>
+  <thead><tr><th>Aspect</th><th>LSTM</th><th>iTransformer</th></tr></thead>
+  <tbody>
+    <tr><td>What is the "sequence"?</td><td>Time. LSTM reads step by step: day 0 … day 19.</td><td>Variables. The "sequence" is the 37 features; each "token" is that feature's 20-day series.</td></tr>
+    <tr><td>What does the model mix?</td><td>Information across time (recurrent + hidden state).</td><td>Information across variables (self-attention over the 37 tokens).</td></tr>
+    <tr><td>Where is time?</td><td>Time is the order the LSTM processes.</td><td>Time is inside each token (the 20 values projected by the first linear).</td></tr>
+    <tr><td>Output from sequence</td><td>Usually the last hidden state.</td><td>Mean over the 37 tokens.</td></tr>
+  </tbody>
+</table>
+<p>So: <strong>LSTM = "walk through time, remember; then use the last state." iTransformer = "summarize each variable over time into one vector; then let variables attend to each other and average."</strong></p>
+<table>
+  <thead><tr><th>Aspect</th><th>Normal time-series Transformer</th><th>iTransformer</th></tr></thead>
+  <tbody>
+    <tr><td>Token</td><td>One time step (e.g. one day).</td><td>One variable (one feature's full time series projected to a vector).</td></tr>
+    <tr><td>Sequence length</td><td>T (e.g. 20 or 60).</td><td>C (e.g. 37 features).</td></tr>
+    <tr><td>Attention over</td><td>Time: "day 3 attends to day 0, 1, 2, 4, …".</td><td>Variables: "return attends to volume, RSI, …".</td></tr>
+    <tr><td>Cost</td><td>O(T²) in time length.</td><td>O(C²) in number of variables.</td></tr>
+  </tbody>
+</table>
+<p><strong>When might you prefer which?</strong> LSTM: when you care a lot about order in time and recurrence. Normal Transformer (time as tokens): when you have long sequences and need long-range time dependencies. iTransformer: when you have many variables and care more about how they interact; time is summarized per variable first, then variables are mixed.</p>
+</section>
+
+<!-- ==================== PATCHTST ==================== -->
+<section class="doc-section" id="patchtst">
+<h1>4. PatchTST — Patching, Tokens, Training, and How It Differs from LSTM and iTransformer</h1>
+<p>This doc explains <code>src/models/forecasting/patchtst.py</code>: what patching is, how patches become tokens, how training and prediction work, how PatchTST differs from LSTM and iTransformer, and the full forward pass and training logic in pseudocode.</p>
+
+<h2>1. What patching means</h2>
+<p><strong>The raw input:</strong> You have one sequence per sample: e.g. 20 time steps × 37 features. One sample is a matrix (20, 37). The model must turn this into one number (e.g. next-day return).</p>
+<p><strong>The problem with "one time step = one token":</strong> If each time step is one token, we have 20 tokens. Attention cost grows with the square of the sequence length (20² = 400). Each token is "one day, all 37 features" — mixing time and features in one vector.</p>
+<p><strong>Patching: group time steps into chunks.</strong> Instead of 20 tokens (one per day), we group consecutive days into patches and treat one patch = one token. Example: patch_len = 4. The 20 time steps become 5 patches: Patch 0: days 0–3 (4×37); Patch 1: days 4–7; …; Patch 4: days 16–19. So we have 5 tokens instead of 20. Sequence length the Transformer sees is 5. So <strong>patching</strong> = "split the time axis into non-overlapping chunks; each chunk is one patch." n_patches = seq_len // patch_len. <strong>Why do it?</strong> Shorter sequence → cheaper attention (5² vs 20²). Each token can encode local time via a linear layer; the Transformer then mixes across patches (more global time).</p>
+
+<h2>2. How patches become tokens</h2>
+<p><strong>Input:</strong> x shape (B, T, C). Example: (32, 20, 37). We require T divisible by patch_len. Use only the last effective_seq_len steps.</p>
+<p><strong>Step 1 — Reshape into patches:</strong> Take last effective_seq_len time steps. Reshape: (B, T, C) → (B, n_patches, patch_len, C) e.g. (32, 5, 4, 37). Flatten last two dims of each patch: (B, n_patches, patch_len * C) e.g. (32, 5, 148). One patch = 148 numbers.</p>
+<p><strong>Step 2 — Project to d_model:</strong> Linear(patch_len * n_channels, d_model). (32, 5, 148) → (32, 5, 64). Each of the 5 patches is a vector of size d_model. Those are the tokens.</p>
+<p><strong>Step 3 — Positional embedding (optional):</strong> x = x + pos_embed. Shape stays (B, n_patches, d_model). So: patch = contiguous block of (patch_len × n_channels) values → flatten → linear → one d_model-sized vector = one token.</p>
+
+<h2>3. How training and prediction work</h2>
+<p><strong>Training:</strong> Inputs: X_train (n_samples, seq_len, n_features), y_train (n_samples,) continuous target. Optionally X_val, y_val. Scaling: Fit StandardScaler on flattened X_train and on y_train; transform train (and val). Model: PatchTST(...). Loop: each epoch, each batch: forward → scalar prediction → MSE loss vs yb → backward → optimizer step. If val: compute val MSE, keep best weights, early stop. Restore best weights. Output: trained model. This is regression (predict a number), not classification.</p>
+<p><strong>Prediction:</strong> Input: X shape (n_samples, seq_len, n_features). Use same seq_len and scaling as in fit (last seq_len steps, transform with scaler_x). Forward in batches, eval mode, no gradients. Output: concatenate batch outputs, inverse-transform with scaler_y. Return 1D array. So: same sliding-window format as LSTM/iTransformer; target is continuous; train with MSE; predict scalar and unscale.</p>
+
+<h2>4. How PatchTST differs from LSTM and iTransformer</h2>
+<table>
+  <thead><tr><th>Aspect</th><th>LSTM</th><th>iTransformer</th><th>PatchTST</th></tr></thead>
+  <tbody>
+    <tr><td>What is one "token" or step?</td><td>One time step (one day, all features).</td><td>One variable (one feature's full 20-day series). 37 tokens.</td><td>One patch (e.g. 4 consecutive days × all features, flattened and projected). 5 tokens.</td></tr>
+    <tr><td>Sequence length</td><td>T (e.g. 20).</td><td>C (e.g. 37).</td><td>n_patches = T / patch_len (e.g. 5).</td></tr>
+    <tr><td>What gets mixed?</td><td>Information across time (recurrent + hidden state).</td><td>Information across variables (attention over 37 variable-tokens).</td><td>Information across time chunks (attention over 5 patch-tokens).</td></tr>
+    <tr><td>Where is "local time"?</td><td>Inside the recurrence (each step sees one day).</td><td>Inside each variable's embedding (Linear(seq_len, d_model) per variable).</td><td>Inside each patch (patch = patch_len days; linear(patch_len*C, d_model)).</td></tr>
+    <tr><td>Task in this repo</td><td>Trend classification (0/1 or 0/1/2).</td><td>Trend classification.</td><td>Regression (next-step return); can be thresholded to trend.</td></tr>
+    <tr><td>Output head</td><td>Linear(hidden, num_classes) → logits.</td><td>Mean over variable-tokens → Linear(d_model, num_classes).</td><td>Mean (or last) over patch-tokens → Linear(d_model, 1) → scalar.</td></tr>
+  </tbody>
+</table>
+<p><strong>In one line each:</strong> LSTM: "Walk through time step by step; use the last hidden state to classify." iTransformer: "Summarize each variable over time into one vector; attend over variables; pool and classify." PatchTST: "Summarize each time chunk (patch) into one vector; attend over patches; pool and regress."</p>
+
+<h2>5. Full forward pass in pseudocode</h2>
+<pre>FUNCTION PatchTST_forward(x):
+    // x shape: (B, T, C). Example: (32, 20, 37)
+    T_use = min(T, n_patches * patch_len)
+    x = x[:, last T_use steps, :]
+    x = reshape(x, (B, n_patches, patch_len, C))   // (32, 5, 4, 37)
+    x = reshape(x, (B, n_patches, patch_len * C))   // (32, 5, 148)
+    x = Linear(x)   // (B, n_patches, d_model)
+    IF use_pos_embed: x = x + pos_embed
+    FOR each layer in transformer_layers:
+        x = self_attention(x)
+        x = feed_forward(x)
+    IF pool_mode == "mean": x = mean(x, over dimension 1)
+    ELSE: x = x[:, last token, :]
+    out = Linear_head(x)   // (B, d_model) -> (B, 1)
+    out = squeeze(out)
+    RETURN out   // scalar per sample</pre>
+
+<h2>6. Full training logic in pseudocode</h2>
+<pre>FUNCTION train_patchtst(model, X_train, y_train, X_val, y_val, device, epochs, batch_size, lr, early_stopping_patience):
+    model = model.to(device)
+    optimizer = Adam(model.parameters(), lr=lr)
+    criterion = MSELoss()
+    best_val_loss = infinity, best_state = None, patience_counter = 0
+    history = { "train_loss": [], "val_loss": [] }
+    train_loader = DataLoader(TensorDataset(X_train, y_train), batch_size=batch_size, shuffle=True)
+    IF X_val and y_val provided and non-empty:
+        val_loader = DataLoader(TensorDataset(X_val, y_val), batch_size=batch_size, shuffle=False)
+    FOR epoch = 1 TO epochs:
+        model.train()
+        train_loss_sum = 0
+        FOR each batch (xb, yb) in train_loader:
+            xb, yb = xb.to(device), yb.to(device)
+            optimizer.zero_grad()
+            pred = model(xb)
+            loss = criterion(pred, yb)
+            loss.backward()
+            optimizer.step()
+            train_loss_sum += loss.item()
+        history["train_loss"].append(train_loss_sum / number_of_batches)
+        IF val_loader exists:
+            model.eval()
+            val_loss_sum = 0
+            FOR each batch (xb, yb) in val_loader (no gradients):
+                pred = model(xb)
+                val_loss_sum += criterion(pred, yb).item()
+            val_loss = val_loss_sum / number_of_val_batches
+            history["val_loss"].append(val_loss)
+            IF val_loss < best_val_loss:
+                best_val_loss = val_loss
+                best_state = copy of model.state_dict()
+                patience_counter = 0
+            ELSE: patience_counter += 1
+            IF patience_counter >= early_stopping_patience: break
+    IF best_state is not None: model.load_state_dict(best_state)
+    RETURN history</pre>
+<p>PatchTSTForecaster.fit in addition: trim seq_len to a multiple of patch_len; fit scaler_x on flattened X and scaler_y on y; scale X and y; build PatchTST net; call train_patchtst; store scalers and net. Predict: take last seq_len steps of X, scale with scaler_x, run predict_patchtst, inverse-transform with scaler_y.</p>
+
+<h2>7. Summary</h2>
+<ul>
+  <li><strong>Patching:</strong> Split the time axis into non-overlapping chunks (e.g. 20 days → 5 patches of 4 days). Each chunk is one patch.</li>
+  <li><strong>Patches → tokens:</strong> Flatten each patch (patch_len × n_channels) and project with Linear to d_model; add optional positional embedding. The Transformer sees n_patches tokens.</li>
+  <li><strong>Training:</strong> Regression (MSE); scale X and y; train with optional val and early stopping; restore best weights.</li>
+  <li><strong>Prediction:</strong> Scale X, forward in batches, inverse-scale predictions.</li>
+  <li><strong>Vs LSTM:</strong> LSTM sequence = time steps; PatchTST sequence = patches (time chunks). Both use the time axis; PatchTST shortens it by patching.</li>
+  <li><strong>Vs iTransformer:</strong> iTransformer sequence = variables; PatchTST sequence = time patches. PatchTST keeps "time as the sequence" but in chunk form; iTransformer makes variables the sequence.</li>
+</ul>
+</section>
+
+<!-- ==================== STACKING ==================== -->
+<section class="doc-section" id="stacking">
+<h1>5. Stacking Ensemble — Beginner's Guide</h1>
+<p>This doc explains <code>src/ensemble/stacking.py</code>: what stacking is, why we use validation predictions, how fit(), predict(), and evaluate() work, the stacking logic in pseudocode, and when stacking helps vs when it fails.</p>
+
+<h2>1. What stacking is</h2>
+<p><strong>The idea in one sentence:</strong> Stacking means: you have several base models (e.g. LightGBM, LSTM, iTransformer, PatchTST). Instead of picking one, you train a second model (the meta-model) whose inputs are the predictions of the base models, and whose output is the final prediction. So the meta-model "learns how to combine" the base models.</p>
+<p><strong>Simple picture:</strong></p>
+<ul>
+  <li><strong>Level 0 (base models):</strong> Each base model looks at the raw features (e.g. the 20-day window of 37 features) and outputs a prediction — here, class probabilities (e.g. P(down), P(up)).</li>
+  <li><strong>Level 1 (meta-model):</strong> It does not see the raw features. Its input is the list of base predictions for that sample. For example, for one sample: LightGBM says (0.3, 0.7); LSTM says (0.6, 0.4); iTransformer says (0.2, 0.8). So the meta-model's input for this sample is the concatenation: [0.3, 0.7, 0.6, 0.4, 0.2, 0.8] (6 numbers for 3 models × 2 classes). The meta-model then outputs the final class (or probabilities). So it learns things like "when LSTM and iTransformer both say up but LightGBM says down, prefer up" from data.</li>
+</ul>
+<p>So <strong>stacking = one model on top of others, trained to combine their outputs.</strong> The base models are the first layer of prediction; the meta-model is the second layer stacked on top.</p>
+
+<h2>2. Why validation predictions are used</h2>
+<p><strong>The leakage problem:</strong> We want to train the meta-model on base model outputs. The question is: which base outputs? If we use the base models' predictions on the training set: those predictions were made by models that were trained on that same training set. So the base models have already "seen" the training labels. Their training-set predictions can be overconfident or overfit to that set. If the meta-model learns from those, it learns from contaminated inputs — that's leakage: information from the training labels flows into the meta-features in a too-direct way. The meta-model might do well on the training set but poorly on new data.</p>
+<p><strong>The fix: use validation predictions.</strong> We split data into train, validation, and test (in time order). Base models are trained only on the training set (and maybe use validation only for early stopping — they don't use validation labels for training). We then run each base model on the validation set and collect their predictions. Those validation samples were never used to train the base models. So for the base models, validation predictions are out-of-sample: they're "honest" predictions on unseen data. We train the meta-model on: Input: those validation-set base predictions (stacked into one vector per sample). Target: the true validation labels (y_val). So the meta-model learns: "given these out-of-sample base predictions, what is the best way to combine them to get the true label?" No leakage. <strong>Summary:</strong> We use validation predictions (not training predictions) so that the meta-model's inputs are out-of-sample for the base models, avoiding leakage and giving a better signal for learning how to combine.</p>
+
+<h2>3. Walk through fit(), predict(), evaluate()</h2>
+<h3>fit(base_preds_val, y_val)</h3>
+<p><strong>What goes in:</strong> base_preds_val: A dictionary. Each key is a model name (e.g. "LightGBM", "LSTM"). Each value is an array of predictions for the validation set. Shape can be (n_val,) for binary (e.g. probability of class 1), or (n_val, n_classes) (probabilities for each class). y_val: The true labels for the validation set, shape (n_val,), integers (0 or 1 for binary).</p>
+<p><strong>What happens inside:</strong> (1) Stack: For each validation sample, concatenate the probability vectors from all base models (in a fixed order, e.g. alphabetical by model name). So we get a matrix X_meta of shape (n_val, n_models * n_classes). Example: 4 models, 2 classes → 8 numbers per sample. (2) Train meta-model: Fit a classifier (logistic regression or MLP) with Input: X_meta (stacked validation predictions), Target: y_val (true validation labels). (3) Store the fitted meta-model and the list of model names (so we know the order of columns when we stack test predictions later).</p>
+<p><strong>What comes out:</strong> The same ensemble object (self) is returned, now fitted. You can call predict or evaluate next. <strong>Why:</strong> This is the whole "training" of the ensemble: the meta-model learns how to map base predictions → final class from validation data.</p>
+
+<h3>predict(base_preds_test)</h3>
+<p><strong>What goes in:</strong> base_preds_test: Same structure as for fit, but for the test set: {model_name: array of shape (n_test,) or (n_test, n_classes)}.</p>
+<p><strong>What happens inside:</strong> (1) Stack: Same as in fit: concatenate base predictions per sample → matrix of shape (n_test, n_models * n_classes). (2) Meta-model predict: Run the fitted meta-model on this matrix. It outputs class probabilities, shape (n_test, n_classes). (3) predict() returns the class (argmax of those probabilities), i.e. shape (n_test,) integers.</p>
+<p><strong>What comes out:</strong> Array of predicted labels (0 or 1 for binary), length n_test. <strong>Why:</strong> At test time we don't have labels; we only have base predictions. The meta-model turns those into the final decision.</p>
+
+<h3>predict_proba(base_preds_test)</h3>
+<p>Same as predict, but the return value is the probability matrix from the meta-model, shape (n_test, n_classes), instead of the argmax. Used when we need probabilities (e.g. for ROC-AUC).</p>
+
+<h3>evaluate(y_test, base_preds_test)</h3>
+<p><strong>What goes in:</strong> y_test: True labels for the test set, shape (n_test,). base_preds_test: Base model predictions on the test set (same as for predict).</p>
+<p><strong>What happens inside:</strong> (1) Get ensemble predictions: y_pred = self.predict(base_preds_test) and y_prob = self.predict_proba(base_preds_test). (2) Call the same evaluation function used for single models (evaluate_trend): it takes (y_test, y_pred, y_prob) and returns accuracy, precision, recall, F1, ROC-AUC, confusion matrix.</p>
+<p><strong>What comes out:</strong> A dictionary of metrics (accuracy, precision, recall, f1, roc_auc, confusion_matrix). <strong>Why:</strong> So we can compare the ensemble with each base model using the same metrics on the same test set.</p>
+
+<h2>4. Stacking logic in pseudocode</h2>
+<pre>// Setup (before stacking): You already have base models trained on (X_train, y_train);
+// base_preds_val = { "LightGBM": (n_val, 2), "LSTM": (n_val, 2), ... }
+// y_val = (n_val,) true labels
+// base_preds_test = { ... } for TEST
+// y_test = (n_test,) true labels
+
+FUNCTION stack_predictions(base_preds, n_classes):
+    names = sorted keys of base_preds
+    FOR each name in names:
+        P = base_preds[name]
+        Ensure P has shape (n_samples, n_classes) [convert 1d to 2d if binary]
+        append P to list parts
+    X_meta = concatenate parts along columns   // (n_samples, n_models * n_classes)
+    RETURN X_meta
+
+FUNCTION fit(base_preds_val, y_val):
+    X_meta = stack_predictions(base_preds_val, n_classes)   // (n_val, n_models * n_classes)
+    meta_model = LogisticRegression(...)   // or MLP
+    meta_model.fit(X_meta, y_val)
+    Store meta_model and list of model names
+    RETURN self
+
+FUNCTION predict(base_preds_test):
+    X_meta = stack_predictions(base_preds_test, n_classes)   // (n_test, n_models * n_classes)
+    probs = meta_model.predict_proba(X_meta)   // (n_test, n_classes)
+    RETURN argmax(probs, axis=1)   // (n_test,) integer labels
+
+FUNCTION predict_proba(base_preds_test):
+    X_meta = stack_predictions(base_preds_test, n_classes)
+    RETURN meta_model.predict_proba(X_meta)   // (n_test, n_classes)
+
+FUNCTION evaluate(y_test, base_preds_test):
+    y_pred = predict(base_preds_test)
+    y_prob = predict_proba(base_preds_test)
+    RETURN evaluate_trend(y_test, y_pred, y_prob, n_classes)   // accuracy, f1, roc_auc, etc.</pre>
+<p>So the core is: stack base predictions into X_meta → meta-model fits on (X_meta_val, y_val) → at test time stack base test predictions → meta-model predicts from that.</p>
+
+<h2>5. When stacking helps and when it fails</h2>
+<h3>When stacking usually helps</h3>
+<ol>
+  <li><strong>Base models make different kinds of mistakes.</strong> If one model is wrong when another is right, the meta-model can learn "trust LSTM more when LightGBM is uncertain" or "when both say up, say up." So diversity among base models (different architectures: tree, LSTM, Transformer, etc.) often helps.</li>
+  <li><strong>Base models are at least somewhat good.</strong> If every base model is only 50% accurate (random), the meta-model has no signal to learn from. Stacking improves when base models are individually useful but not perfect.</li>
+  <li><strong>Enough validation data.</strong> The meta-model needs enough (X_meta_val, y_val) pairs to learn a stable combination. If validation is tiny, the meta-model can overfit to val and not generalize to test.</li>
+  <li><strong>Base predictions are well aligned.</strong> All base models output predictions for the same validation (and test) samples — same rows, same order. So the stacked vector for sample i really is "what every model said for sample i." If alignment is wrong, stacking breaks.</li>
+</ol>
+
+<h3>When stacking can fail or add little</h3>
+<ol>
+  <li><strong>Base models are too similar.</strong> If all base models are almost the same (e.g. same architecture, same data), their predictions are highly correlated. Then the meta-model has almost no extra information — it's like having one input repeated. Little or no gain.</li>
+  <li><strong>One model is much better than the others.</strong> If LightGBM is 80% accurate and the rest are 52%, the best strategy might be "always follow LightGBM." The meta-model might learn that (which is fine), but you could have just used LightGBM alone. Stacking helps most when no single model dominates and combining adds value.</li>
+  <li><strong>Validation set is too small or unrepresentative.</strong> If val is small, the meta-model may overfit to val. If val has a different distribution than test (e.g. different time period in finance), the learned combination may not transfer. So stacking can fail when val is not representative of test.</li>
+  <li><strong>Meta-model is too complex.</strong> If you use a very flexible meta-model (e.g. a big MLP) on a small validation set, it can overfit and the ensemble can do worse than the best base model. Simple meta-models (e.g. logistic regression) are often more robust.</li>
+  <li><strong>Base models are all bad.</strong> If every base model is poor, stacking cannot magically fix that. "Garbage in, garbage out" — the meta-model only combines what it's given.</li>
+</ol>
+
+<h3>Rule of thumb</h3>
+<ul>
+  <li><strong>Try stacking</strong> when you have several different base models that are reasonably good and a sufficient, representative validation set.</li>
+  <li><strong>Don't expect a miracle</strong> when base models are very similar or when one model is already much better than the rest.</li>
+  <li><strong>Keep the meta-model simple</strong> (e.g. logistic regression) unless you have a lot of validation data and a reason to use something more complex.</li>
+</ul>
+<p>In this project, stacking is used to combine LightGBM, LSTM, iTransformer, and (optionally) PatchTST — different families of models — so there is enough diversity for the meta-model to learn a useful combination when conditions above are met.</p>
+</section>
+
+<p style="margin-top: 2rem;"><a href="#toc">↑ Về mục lục</a></p>
+
+</body>
+</html>

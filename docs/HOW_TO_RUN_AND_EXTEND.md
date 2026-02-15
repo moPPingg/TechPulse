@@ -11,7 +11,7 @@
 ### 1. Install Dependencies
 
 ```bash
-cd d:\techpulse
+cd <project_root>
 pip install -r requirements.txt
 ```
 
@@ -22,9 +22,9 @@ python src/pipeline/vnindex30/fetch_vn30.py
 ```
 
 This crawls CafeF, cleans, and builds features for VN30. Output:
-- `data/raw/vn30/*.csv`
-- `data/clean/vn30/*.csv`
-- `data/features/vn30/*.csv`
+- `data/raw/*.csv` (or under config data paths)
+- `data/processed/*.csv`
+- Feature outputs (see configs/config.yaml)
 
 ### 3. (Optional) News Pipeline
 

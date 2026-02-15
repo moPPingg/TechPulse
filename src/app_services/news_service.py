@@ -51,9 +51,35 @@ def _normalize_url(url: str, source: str) -> str:
     u = url.strip()
     if u.startswith("http://") or u.startswith("https://"):
         return u
-    base = _SOURCE_BASE_URLS.get((source or "").lower(), "")
+    
+    # Map sources (lowercase) to base URLs
+    s = (source or "").strip().lower()
+    base = _SOURCE_BASE_URLS.get(s, "")
+    
+    # Fallback: Inference from URL structure if source/base is missing
+    if not base:
+        low_u = u.lower()
+        if low_u.endswith(".chn"):
+            base = "https://cafef.vn"
+        elif low_u.endswith(".html"):
+             # Could be VNExpress or others, but VNExpress is most common context here
+            base = "https://vnexpress.net"
+        elif low_u.endswith(".htm") or "/20" in low_u: 
+            # Vietstock often uses .htm or just paths. 
+            # If it looks like a path starting with year /20.., default to Vietstock if not caught above?
+            # Or safe fallback to CafeF if it's the main source.
+            # Let's check if it looks like Vietstock ID pattern or just generic.
+            pass
+            
+    # If still no base, attempt to return u, but if it starts with /, it's broken relative link.
+    # Default to CafeF if we really can't tell, as it's the primary source?
+    if not base and u.startswith("/"):
+         # Final fallback for /202x/... style urls often from CafeF/Vietstock
+         base = "https://cafef.vn"
+
     if not base:
         return u
+        
     if u.startswith("/"):
         return base.rstrip("/") + u
     return base.rstrip("/") + "/" + u.lstrip("/")

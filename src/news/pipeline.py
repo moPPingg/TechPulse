@@ -5,11 +5,13 @@ Orchestrate: crawl → clean → sentiment → align. All steps idempotent; DB i
 import logging
 from pathlib import Path
 from typing import Optional
+import hashlib
 
 from src.news.db import (
     get_engine,
     init_db,
     insert_article,
+    find_article_by_content_hash,
     set_article_cleaned,
     set_sentiment,
     set_article_tickers,
@@ -100,6 +102,24 @@ def run_crawl(conn, config: dict) -> int:
                 body = rec.body_raw
                 if not body and hasattr(crawler, "fetch_article_body"):
                     body = crawler.fetch_article_body(rec.url)
+
+                # Content-hash-based deduplication across sources.
+                normalized_text = f"{(rec.title or '').strip()}\n{(body or '').strip()}"
+                content_hash = hashlib.sha1(
+                    normalized_text.encode("utf-8", errors="ignore")
+                ).hexdigest() if normalized_text.strip() else None
+
+                if content_hash:
+                    existing_id = find_article_by_content_hash(conn, content_hash)
+                    if existing_id:
+                        logger.debug(
+                            "Skip duplicate article %s from %s (existing id=%s)",
+                            rec.url,
+                            rec.source,
+                            existing_id,
+                        )
+                        continue
+
                 aid = insert_article(
                     conn,
                     source=rec.source,
@@ -107,6 +127,7 @@ def run_crawl(conn, config: dict) -> int:
                     title=rec.title,
                     body_raw=body,
                     published_at=rec.published_at,
+                    content_hash=content_hash,
                 )
                 if aid:
                     total += 1

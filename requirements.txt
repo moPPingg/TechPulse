@@ -12,6 +12,10 @@ pytz>=2023.3
 xgboost>=2.0.0
 statsmodels>=0.14.0
 torch>=2.0.0
+lightgbm>=4.0.0
+
+# Optional: hyperparameter tuning for LightGBM trend pipeline
+# optuna>=3.0.0
 
 # News pipeline (crawl, clean, sentiment, align)
 beautifulsoup4>=4.12.0

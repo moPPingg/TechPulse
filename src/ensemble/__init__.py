@@ -1,11 +1,8 @@
 """
-Ensemble Layer: Model weighting and uncertainty-aware aggregation.
+Ensemble Layer: Model weighting, uncertainty-aware aggregation, and stacking.
 
-What goes in:  Per-model forecasts (mean, optional std) + historical performance metrics.
-What comes out: Ensemble mean, ensemble std, per-model weights.
-
-Why this exists: Single models overfit; weighting by stability reduces variance.
-Penalize unstable (high variance in backtest) and overfit (val >> test) models.
+- aggregator: Inverse-MAE / stability weighting for regression forecasts.
+- stacking: Temporal stacking for trend classification (meta-model on base model proba).
 """
 
 from src.ensemble.aggregator import (
@@ -13,9 +10,19 @@ from src.ensemble.aggregator import (
     aggregate_forecasts,
     compute_stability_weights,
 )
+from src.ensemble.stacking import (
+    TemporalStackingEnsemble,
+    compare_models,
+    print_comparison,
+    stack_predictions,
+)
 
 __all__ = [
     "EnsembleResult",
     "aggregate_forecasts",
     "compute_stability_weights",
+    "TemporalStackingEnsemble",
+    "compare_models",
+    "print_comparison",
+    "stack_predictions",
 ]

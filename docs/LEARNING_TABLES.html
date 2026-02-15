@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TechPulse — Bảng so sánh mô hình & Stacking</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; margin: 1rem 2rem; max-width: 1200px; color: #1a1a1a; line-height: 1.5; }
+    h1 { font-size: 1.5rem; border-bottom: 2px solid #2563eb; padding-bottom: 0.5rem; }
+    h2 { font-size: 1.2rem; margin-top: 1.5rem; color: #1e40af; }
+    table { width: 100%; border-collapse: collapse; margin: 0.75rem 0; font-size: 0.9rem; }
+    th, td { border: 1px solid #cbd5e1; padding: 0.5rem 0.75rem; text-align: left; vertical-align: top; }
+    th { background: #e0e7ff; font-weight: 600; }
+    tr:nth-child(even) { background: #f8fafc; }
+    .model-name { font-weight: 600; color: #1e40af; }
+    .note { font-size: 0.85rem; color: #64748b; margin-top: 0.25rem; }
+    .pseudo { font-family: 'Consolas', monospace; font-size: 0.8rem; background: #f1f5f9; padding: 0.5rem; border-radius: 4px; white-space: pre-wrap; margin: 0.5rem 0; }
+    ul { margin: 0.25rem 0; padding-left: 1.25rem; }
+    a { color: #2563eb; }
+    section { margin-bottom: 2rem; }
+  </style>
+</head>
+<body>
+
+<h1>TechPulse — Bảng tổng hợp học tập: LightGBM, LSTM, iTransformer, PatchTST, Stacking</h1>
+<p class="note">Tài liệu gốc: <code>docs/LIGHTGBM_TREND_WALKTHROUGH.md</code>, <code>LSTM_TREND_WALKTHROUGH.md</code>, <code>ITRANSFORMER_TREND_WALKTHROUGH.md</code>, <code>PATCHTST_WALKTHROUGH.md</code>, <code>STACKING_WALKTHROUGH.md</code>.</p>
+
+<!-- ========== 1. SO SÁNH NHANH CÁC MÔ HÌNH ========== -->
+<section>
+<h2>1. So sánh nhanh: Bài toán & Pipeline</h2>
+<table>
+  <thead>
+    <tr>
+      <th>Mô hình</th>
+      <th>Bài toán (một câu)</th>
+      <th>Input mẫu</th>
+      <th>Output</th>
+      <th>Thứ tự pipeline</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td class="model-name">LightGBM</td>
+      <td>Phân loại xu hướng ngày mai (lên/xuống) từ <strong>một dòng</strong> feature hôm nay (và optional news).</td>
+      <td>1 dòng = 1 ngày: (n_samples, n_features)</td>
+      <td>Nhãn 0/1 (hoặc 0/1/2); xác suất; feature importance</td>
+      <td>load → split → preprocess (scale, target) → train/tune → evaluate → importance</td>
+    </tr>
+    <tr>
+      <td class="model-name">LSTM</td>
+      <td>Phân loại xu hướng ngày mai từ <strong>cửa sổ trượt</strong> seq_len ngày (mỗi mẫu = 1 cửa sổ).</td>
+      <td>(n_samples, seq_len, n_features) — cửa sổ trượt</td>
+      <td>Nhãn 0/1; xác suất; cùng metric với LightGBM</td>
+      <td>load → split → build sliding windows + scale → Dataset/DataLoader → train (CE, early stop) → evaluate</td>
+    </tr>
+    <tr>
+      <td class="model-name">iTransformer</td>
+      <td>Phân loại xu hướng từ cửa sổ; <strong>mỗi token = 1 biến</strong> (cả chuỗi thời gian của biến đó), attention qua biến.</td>
+      <td>(n_samples, seq_len, n_features) — giống LSTM</td>
+      <td>Nhãn 0/1; xác suất; cùng metric</td>
+      <td>load → split → sliding windows + scale → invert embed → Transformer (over vars) → pool → head → train → evaluate</td>
+    </tr>
+    <tr>
+      <td class="model-name">PatchTST</td>
+      <td><strong>Hồi quy</strong> giá trị tiếp theo (return); mỗi token = 1 <strong>patch</strong> (chunk thời gian).</td>
+      <td>(n_samples, seq_len, n_features)</td>
+      <td>1 số (return); có thể ngưỡng thành trend để so sánh</td>
+      <td>load → split → sequential data → scale X,y → patch embed → Transformer (over patches) → pool → head → train (MSE) → predict (unscale)</td>
+    </tr>
+    <tr>
+      <td class="model-name">Stacking</td>
+      <td>Kết hợp dự đoán của nhiều base (LightGBM, LSTM, iTransformer, PatchTST) bằng 1 <strong>meta-model</strong>.</td>
+      <td>Không nhìn raw feature; input = xác suất dự đoán của từng base (đã có sẵn)</td>
+      <td>Nhãn cuối cùng; xác suất; cùng metric</td>
+      <td>Base đã train → lấy base_preds_val → fit( base_preds_val, y_val ) → predict(base_preds_test) → evaluate</td>
+    </tr>
+  </tbody>
+</table>
+</section>
+
+<!-- ========== 2. TOKEN / SEQUENCE LENGTH ========== -->
+<section>
+<h2>2. “Token” là gì? Sequence length?</h2>
+<table>
+  <thead>
+    <tr>
+      <th>Mô hình</th>
+      <th>1 token =</th>
+      <th>Độ dài sequence</th>
+      <th>Attention / mixing qua gì?</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td class="model-name">LightGBM</td>
+      <td>Không dùng “token”; mỗi mẫu = 1 vector feature (1 ngày).</td>
+      <td>—</td>
+      <td>Cây quyết định (split theo feature).</td>
+    </tr>
+    <tr>
+      <td class="model-name">LSTM</td>
+      <td>1 <strong>bước thời gian</strong> (1 ngày, tất cả feature). LSTM xử lý lần lượt 20 bước.</td>
+      <td>T (vd: 20)</td>
+      <td>Qua thời gian (recurrent + hidden state).</td>
+    </tr>
+    <tr>
+      <td class="model-name">iTransformer</td>
+      <td>1 <strong>biến</strong> (1 feature): cả chuỗi 20 ngày của biến đó được project thành 1 vector.</td>
+      <td>C (vd: 37 biến → 37 token)</td>
+      <td>Attention qua <strong>biến</strong> (volume vs return, RSI vs volatility…).</td>
+    </tr>
+    <tr>
+      <td class="model-name">PatchTST</td>
+      <td>1 <strong>patch</strong>: patch_len ngày liên tiếp × tất cả feature → flatten → linear → 1 vector.</td>
+      <td>n_patches = T / patch_len (vd: 20/4 = 5)</td>
+      <td>Attention qua <strong>các patch thời gian</strong> (chunk này vs chunk kia).</td>
+    </tr>
+    <tr>
+      <td class="model-name">Stacking</td>
+      <td>Meta-model không dùng “token”; input = vector nối xác suất của từng base.</td>
+      <td>n_models × n_classes (vd: 4×2 = 8)</td>
+      <td>Logistic/MLP học cách kết hợp từ dữ liệu val.</td>
+    </tr>
+  </tbody>
+</table>
+</section>
+
+<!-- ========== 3. KHI NÀO DÙNG / KHI NÀO STACKING GIÚP ========== -->
+<section>
+<h2>3. Khi nào dùng từng mô hình? Stacking khi nào giúp / khi nào thất bại?</h2>
+<table>
+  <thead>
+    <tr>
+      <th>Chủ đề</th>
+      <th>Nội dung</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td class="model-name">LightGBM</td>
+      <td>Tabular, nhanh, ít hyperparameter; cần feature đã tính sẵn; có feature importance. Dùng khi muốn baseline ổn định, dễ giải thích.</td>
+    </tr>
+    <tr>
+      <td class="model-name">LSTM</td>
+      <td>Khi thứ tự thời gian quan trọng, cần “nhớ” dài; dùng cửa sổ trượt. Tốn train hơn LightGBM.</td>
+    </tr>
+    <tr>
+      <td class="model-name">iTransformer</td>
+      <td>Khi quan hệ <strong>giữa các biến</strong> (volume–return, RSI–volatility) quan trọng; thời gian nén trong từng token.</td>
+    </tr>
+    <tr>
+      <td class="model-name">PatchTST</td>
+      <td>Hồi quy giá trị tiếp theo; giảm chiều dài sequence bằng patch → attention rẻ hơn; so sánh trend bằng cách ngưỡng hóa.</td>
+    </tr>
+    <tr>
+      <td class="model-name">Stacking — khi <strong>giúp</strong></td>
+      <td>
+        <ul>
+          <li>Base mắc lỗi <strong>khác nhau</strong> (đa dạng).</li>
+          <li>Base đều tương đối tốt (không random).</li>
+          <li>Đủ dữ liệu validation, đại diện.</li>
+          <li>Base prediction cùng sample, cùng thứ tự (align đúng).</li>
+        </ul>
+      </td>
+    </tr>
+    <tr>
+      <td class="model-name">Stacking — khi <strong>thất bại / ít lợi</strong></td>
+      <td>
+        <ul>
+          <li>Base quá giống nhau (predict gần như giống).</li>
+          <li>Một base quá mạnh, các base còn lại yếu.</li>
+          <li>Val quá nhỏ hoặc không đại diện cho test.</li>
+          <li>Meta-model quá phức tạp → overfit val.</li>
+          <li>Tất cả base đều kém.</li>
+        </ul>
+      </td>
+    </tr>
+  </tbody>
+</table>
+</section>
+
+<!-- ========== 4. FIT / PREDICT / EVALUATE (STACKING) ========== -->
+<section>
+<h2>4. Stacking: fit(), predict(), evaluate()</h2>
+<table>
+  <thead>
+    <tr>
+      <th>Hàm</th>
+      <th>Input</th>
+      <th>Việc chính</th>
+      <th>Output</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>fit(base_preds_val, y_val)</strong></td>
+      <td>base_preds_val: dict { tên model: (n_val,) hoặc (n_val, n_classes) }; y_val: nhãn val</td>
+      <td>Stack prediction → X_meta (n_val, n_models×n_classes). Fit logistic/MLP trên (X_meta, y_val). Lưu meta-model và thứ tự tên model.</td>
+      <td>Trả về self (đã fit).</td>
+    </tr>
+    <tr>
+      <td><strong>predict(base_preds_test)</strong></td>
+      <td>base_preds_test: dict tương tự, cho test set</td>
+      <td>Stack test predictions → X_meta_test. Meta-model.predict(X_meta_test) → argmax → nhãn.</td>
+      <td>(n_test,) nhãn 0/1.</td>
+    </tr>
+    <tr>
+      <td><strong>predict_proba(base_preds_test)</strong></td>
+      <td>Giống predict</td>
+      <td>Giống predict nhưng trả về xác suất thay vì argmax.</td>
+      <td>(n_test, n_classes) xác suất.</td>
+    </tr>
+    <tr>
+      <td><strong>evaluate(y_test, base_preds_test)</strong></td>
+      <td>y_test: nhãn thật test; base_preds_test: như trên</td>
+      <td>Gọi predict + predict_proba → gọi evaluate_trend(y_test, y_pred, y_prob) → accuracy, F1, ROC-AUC, confusion matrix.</td>
+      <td>Dict metrics.</td>
+    </tr>
+  </tbody>
+</table>
+</section>
+
+<!-- ========== 5. PSEUDOCODE STACKING ========== -->
+<section>
+<h2>5. Stacking — Logic dạng pseudocode</h2>
+<div class="pseudo">stack_predictions(base_preds, n_classes):
+  names = sort(keys(base_preds))
+  parts = []
+  for name in names:
+    P = ensure shape (n_samples, n_classes) for base_preds[name]
+    parts.append(P)
+  X_meta = hstack(parts)   // (n_samples, n_models * n_classes)
+  return X_meta
+
+fit(base_preds_val, y_val):
+  X_meta = stack_predictions(base_preds_val, n_classes)
+  meta_model = LogisticRegression(...).fit(X_meta, y_val)
+  store meta_model, model_names
+  return self
+
+predict(base_preds_test):
+  X_meta = stack_predictions(base_preds_test, n_classes)
+  probs = meta_model.predict_proba(X_meta)
+  return argmax(probs, axis=1)
+
+evaluate(y_test, base_preds_test):
+  y_pred = predict(base_preds_test)
+  y_prob = predict_proba(base_preds_test)
+  return evaluate_trend(y_test, y_pred, y_prob, n_classes)</div>
+</section>
+
+<!-- ========== 6. TẠI SAO DÙNG VALIDATION PREDICTIONS ========== -->
+<section>
+<h2>6. Tại sao meta-model train trên validation predictions?</h2>
+<table>
+  <thead>
+    <tr>
+      <th>Vấn đề</th>
+      <th>Giải thích</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Leakage nếu dùng train predictions</strong></td>
+      <td>Base model được train trên train set → dự đoán trên chính train set thường “quá tự tin” / overfit. Meta-model học từ đó sẽ học từ input bị “nhiễm” (đã thấy label) → generalize kém.</td>
+    </tr>
+    <tr>
+      <td><strong>Cách làm đúng: dùng val predictions</strong></td>
+      <td>Base chỉ train trên train; không train trên val labels. Dự đoán của base trên val là <strong>out-of-sample</strong> → “thật”. Meta-model train trên (base_preds_val, y_val) → học cách kết hợp từ tín hiệu sạch, không leakage.</td>
+    </tr>
+  </tbody>
+</table>
+</section>
+
+<!-- ========== 7. PIPELINE TỔNG (CÁC BƯỚC CHÍNH) ========== -->
+<section>
+<h2>7. Pipeline tổng (các bước chính từng loại)</h2>
+<table>
+  <thead>
+    <tr>
+      <th>Mô hình</th>
+      <th>Bước 1</th>
+      <th>Bước 2</th>
+      <th>Bước 3</th>
+      <th>Bước 4</th>
+      <th>Bước 5</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td class="model-name">LightGBM</td>
+      <td>load_data</td>
+      <td>split (time)</td>
+      <td>preprocess (X,y, scale train only)</td>
+      <td>train (hoặc tune rồi train)</td>
+      <td>evaluate, feature_importance</td>
+    </tr>
+    <tr>
+      <td class="model-name">LSTM</td>
+      <td>load_data, split</td>
+      <td>build_sequences (sliding window + scale)</td>
+      <td>Dataset + DataLoader</td>
+      <td>train (CE, early stop)</td>
+      <td>evaluate (predict_lstm → evaluate_trend)</td>
+    </tr>
+    <tr>
+      <td class="model-name">iTransformer</td>
+      <td>load_data, split</td>
+      <td>build_sequences (giống LSTM)</td>
+      <td>InvertedEmbedding → Transformer → pool → head</td>
+      <td>train (CE, early stop)</td>
+      <td>evaluate</td>
+    </tr>
+    <tr>
+      <td class="model-name">PatchTST</td>
+      <td>sequential data (prepare_sequential)</td>
+      <td>scale X, y; trim seq_len % patch_len</td>
+      <td>PatchEmbedding → Transformer → pool → Linear(1)</td>
+      <td>train (MSE, early stop)</td>
+      <td>predict → inverse_transform y → metrics (RMSE, MAE, R2)</td>
+    </tr>
+    <tr>
+      <td class="model-name">Stacking</td>
+      <td>Base đã train; có base_preds_val, y_val</td>
+      <td>stack_predictions(base_preds_val) → X_meta</td>
+      <td>meta_model.fit(X_meta, y_val)</td>
+      <td>stack_predictions(base_preds_test) → predict</td>
+      <td>evaluate(y_test, base_preds_test)</td>
+    </tr>
+  </tbody>
+</table>
+</section>
+
+<p class="note" style="margin-top: 2rem;">Để đọc chi tiết từng file, mở: <code>docs/LIGHTGBM_TREND_WALKTHROUGH.md</code>, <code>LSTM_TREND_WALKTHROUGH.md</code>, <code>ITRANSFORMER_TREND_WALKTHROUGH.md</code>, <code>PATCHTST_WALKTHROUGH.md</code>, <code>STACKING_WALKTHROUGH.md</code>.</p>
+
+</body>
+</html>

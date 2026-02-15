@@ -1,5 +1,9 @@
 """
 News database schema and access. SQLite by default; schema is research-usable and stable.
+
+Why this file exists: Single source of truth for news storage (articles, cleaned, sentiments,
+tickers, enrichments, ticker_scores). Used by src/news/pipeline.py (write) and src/news/engine.py (read).
+Upstream: pipeline inserts; downstream: engine queries for aggregation and signals.
 """
 
 import logging
@@ -20,6 +24,8 @@ CREATE TABLE IF NOT EXISTS articles (
     body_raw TEXT,
     published_at TEXT,
     created_at TEXT NOT NULL,
+    -- Optional content-based hash for cross-source deduplication
+    content_hash TEXT,
     UNIQUE(source, url)
 );
 """
@@ -82,6 +88,7 @@ CREATE TABLE IF NOT EXISTS article_ticker_scores (
 CREATE_INDEXES = [
     "CREATE INDEX IF NOT EXISTS idx_articles_source ON articles(source)",
     "CREATE INDEX IF NOT EXISTS idx_articles_published_at ON articles(published_at)",
+    "CREATE INDEX IF NOT EXISTS idx_articles_content_hash ON articles(content_hash)",
     "CREATE INDEX IF NOT EXISTS idx_article_tickers_ticker ON article_tickers(ticker)",
     "CREATE INDEX IF NOT EXISTS idx_article_tickers_article_id ON article_tickers(article_id)",
     "CREATE INDEX IF NOT EXISTS idx_sentiments_article_id ON sentiments(article_id)",
@@ -113,6 +120,12 @@ def init_db(db_path: str) -> None:
         CREATE_ARTICLE_TICKER_SCORES,
     ]:
         conn.execute(stmt)
+    # Lightweight migration for older DBs: ensure content_hash column exists.
+    try:
+        conn.execute("ALTER TABLE articles ADD COLUMN content_hash TEXT")
+    except Exception:
+        # Column already exists or migration not needed.
+        pass
     for stmt in CREATE_INDEXES:
         conn.execute(stmt)
     conn.commit()
@@ -123,6 +136,18 @@ def _iso_now() -> str:
     return datetime.utcnow().isoformat() + "Z"
 
 
+def find_article_by_content_hash(conn, content_hash: str) -> Optional[int]:
+    """Return existing article id for a given content hash, if any."""
+    if not content_hash:
+        return None
+    cur = conn.execute(
+        "SELECT id FROM articles WHERE content_hash = ? LIMIT 1",
+        (content_hash,),
+    )
+    row = cur.fetchone()
+    return int(row["id"]) if row else None
+
+
 def insert_article(
     conn,
     source: str,
@@ -130,19 +155,21 @@ def insert_article(
     title: str,
     body_raw: Optional[str] = None,
     published_at: Optional[str] = None,
+    content_hash: Optional[str] = None,
 ) -> int:
     """Insert or replace by (source, url). Returns article id."""
     now = _iso_now()
     cursor = conn.execute(
         """
-        INSERT INTO articles (source, url, title, body_raw, published_at, created_at)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO articles (source, url, title, body_raw, published_at, created_at, content_hash)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(source, url) DO UPDATE SET
             title = excluded.title,
             body_raw = COALESCE(excluded.body_raw, body_raw),
-            published_at = COALESCE(excluded.published_at, published_at)
+            published_at = COALESCE(excluded.published_at, published_at),
+            content_hash = COALESCE(excluded.content_hash, content_hash)
         """,
-        (source, url, title, body_raw or "", published_at, now),
+        (source, url, title, body_raw or "", published_at, now, content_hash),
     )
     conn.commit()
     rid = cursor.lastrowid
@@ -422,6 +449,7 @@ def get_enriched_articles_for_ticker(
     conn,
     ticker: str,
     date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
     limit: int = 50,
     min_relevance: float = 0.0,
     sentiment_method: str = "lexicon",
@@ -430,6 +458,7 @@ def get_enriched_articles_for_ticker(
     """
     Get articles with enrichments and ticker scores for symbol.
     Uses article_ticker_scores when available; fallback 0.5 for unenriched.
+    date_from / date_to: YYYY-MM-DD; both inclusive for filtering published_at.
     """
     ticker = ticker.upper()
     pattern = f"%{ticker}%"
@@ -456,6 +485,10 @@ def get_enriched_articles_for_ticker(
     if date_from:
         sql += " AND (a.published_at >= ? OR a.published_at IS NULL)"
         params.append(date_from)
+    if date_to:
+        sql += " AND (a.published_at <= ? OR a.published_at IS NULL)"
+        end_day = (date_to + "T23:59:59") if len(date_to) == 10 else date_to
+        params.append(end_day)
     if event_type_filter:
         sql += " AND (e.event_type = ? OR e.event_type IS NULL)"
         params.append(event_type_filter)

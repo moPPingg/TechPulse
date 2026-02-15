@@ -1704,3 +1704,44 @@ body {
   font-size: 0.8125rem;
   color: var(--text-muted);
 }
+
+/* Chart Tooltip Grid */
+.chart-tooltip .tooltip-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.chart-tooltip .tooltip-status {
+  font-size: 1.2em;
+  line-height: 1;
+}
+
+.chart-tooltip .tooltip-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.35rem 1rem;
+}
+
+.chart-tooltip .tooltip-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.chart-tooltip .tooltip-full {
+  grid-column: 1 / -1;
+  border-top: 1px solid rgba(255,255,255,0.1);
+  padding-top: 0.35rem;
+  margin-top: 0.1rem;
+}
+
+.news-source {
+  font-size: 0.85em;
+  color: #6b7280;
+  font-weight: 500;
+}
+

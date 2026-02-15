@@ -1,6 +1,9 @@
 # News pipeline configuration (research-grade)
 # Used by: src/news/pipeline.py, scripts/run_news_pipeline.py
 
+# Streaming-style: run crawl + process this often (minutes). Lower = more continuous.
+crawl_interval_minutes: 15
+
 # Database (SQLite path; use absolute or relative to project root)
 database:
   path: "data/news/news.db"

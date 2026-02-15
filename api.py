@@ -34,48 +34,52 @@ from pydantic import BaseModel, Field
 from src.app_services.recommendation import UserProfile, get_risk_advice
 
 
-def _run_news_crawl():
-    """Chạy bước crawl tin tức (mỗi 2 tiếng)."""
+def _run_news_pipeline():
+    """Streaming-style news pipeline: crawl then process only new articles (run every N min)."""
+    start = datetime.now()
+    _logger.info("⏳ News pipeline (streaming) started at %s", start.strftime("%H:%M:%S"))
     try:
-        from src.news.pipeline import load_news_config, run_crawl
-        from src.news.db import get_engine, init_db
-        cfg = load_news_config()
-        db_path = cfg.get("database", {}).get("path", "data/news/news.db")
-        if not Path(db_path).is_absolute():
-            db_path = str(_ROOT / db_path)
-        init_db(db_path)
-        conn = get_engine(db_path)
-        n = run_crawl(conn, cfg)
-        _logger.info("News crawl (scheduled): %d articles processed", n)
+        from src.news.pipeline import run_pipeline
+        results = run_pipeline()
+        n = results.get("crawl", 0)
+        elapsed = (datetime.now() - start).total_seconds()
+        _logger.info("✅ News pipeline done: crawl=%s, steps=%s (%.1fs)", n, results, elapsed)
     except Exception as e:
-        _logger.warning("News crawl failed: %s", e)
+        _logger.exception("❌ News pipeline failed: %s", e)
 
 
 def _run_data_pipeline():
     """Chạy pipeline giá VN30: Crawl → Clean → Features (mỗi 4 tiếng). Giữ start từ config, end=hôm nay."""
+    start = datetime.now()
+    _logger.info(f"⏳ Bắt đầu Data Pipeline VN30 lúc {start.strftime('%H:%M:%S')}")
     try:
         from src.pipeline.vnindex30.fetch_vn30 import run_vn30_pipeline, load_pipeline_config
         cfg = load_pipeline_config()
         end_str = datetime.now().strftime("%d/%m/%Y")
         run_vn30_pipeline(start_date=cfg.get("start_date"), end_date=end_str)
-        _logger.info("Data pipeline (scheduled): Crawl+Clean+Features completed")
+        elapsed = (datetime.now() - start).total_seconds()
+        _logger.info(f"✅ Data pipeline xong (Crawl+Clean+Features). (Mất {elapsed:.1f}s)")
     except Exception as e:
-        _logger.warning("Data pipeline failed: %s", e)
+        _logger.exception(f"❌ Data pipeline failed: {e}")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Startup: bật scheduler cào tin + cào giá. Shutdown: tắt scheduler."""
+    """Startup: run news pipeline continuously (streaming-style) and price pipeline. Shutdown: stop scheduler."""
     scheduler = None
     try:
         from apscheduler.schedulers.background import BackgroundScheduler
+        from src.news.pipeline import load_news_config
         scheduler = BackgroundScheduler()
-        scheduler.add_job(_run_news_crawl, "interval", hours=2, id="news_crawl")
+        # Streaming-style: run news crawl + process every N minutes (config: crawl_interval_minutes).
+        news_cfg = load_news_config()
+        interval_min = news_cfg.get("crawl_interval_minutes", 15)
+        scheduler.add_job(_run_news_pipeline, "interval", minutes=interval_min, id="news_pipeline")
         scheduler.add_job(_run_data_pipeline, "interval", hours=4, id="data_pipeline")
         scheduler.start()
-        _logger.info("Schedulers started: news every 2h, data (price) every 4h")
+        _logger.info("Schedulers started: news every %s min (streaming), data every 4h", interval_min)
     except ImportError:
-        _logger.warning("APScheduler not installed. News crawl every 2h disabled.")
+        _logger.warning("APScheduler not installed. News pipeline disabled.")
     yield
     if scheduler:
         scheduler.shutdown(wait=False)
@@ -396,7 +400,8 @@ def get_stock_news_intelligence(
             symbol, days=days, min_relevance=min_relevance,
             limit_articles=limit, event_type_filter=event_type,
         )
-        return {
+        # Build response with reasoning and per-article breakdown (url, source, publish time, relevance, horizon, sentiment).
+        payload = {
             "symbol": signal.symbol,
             "is_general_fallback": getattr(signal, "is_general_fallback", False),
             "signal": {
@@ -409,6 +414,9 @@ def get_stock_news_intelligence(
                 "net_impact_label": signal.net_impact_label,
                 "net_impact_confidence": signal.net_impact_confidence,
             },
+            "reasoning": getattr(signal, "reasoning", "") or "",
+            "top_contributors": getattr(signal, "top_contributors", []) or [],
+            "market_shock": None,
             "top_3_impact": [
                 {
                     "title": i.title,
@@ -434,8 +442,70 @@ def get_stock_news_intelligence(
                     "sentiment_score": a.sentiment_score,
                     "sentiment_confidence": a.sentiment_confidence,
                     "impact_horizon": a.impact_horizon,
+                    "horizon_weight": getattr(a, "horizon_weight", 1.0),
+                    "contribution_weight": getattr(a, "contribution_weight", 0.0),
+                    "raw_contribution": getattr(a, "raw_contribution", 0.0),
                 }
                 for a in signal.top_articles
+            ],
+        }
+        if getattr(signal, "market_shock", None) and signal.market_shock.is_shock:
+            payload["market_shock"] = {
+                "is_shock": True,
+                "reason": signal.market_shock.reason,
+                "summary": signal.market_shock.summary,
+                "contributing_article_titles": signal.market_shock.contributing_article_titles,
+            }
+        return payload
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/stock/{symbol}/news/daily")
+def get_stock_news_daily(
+    symbol: str,
+    from_date: str,
+    to_date: str,
+    min_relevance: float = 0.2,
+):
+    """
+    Per-ticker daily news signals with explainable per-article contribution.
+    from_date, to_date: YYYY-MM-DD (inclusive).
+    """
+    symbol = symbol.strip().upper()
+    if symbol not in VN30:
+        raise HTTPException(status_code=400, detail="Symbol not in VN30")
+    try:
+        from src.app_services.news_intelligence import get_ticker_daily_signals
+        daily = get_ticker_daily_signals(symbol, from_date=from_date, to_date=to_date, min_relevance=min_relevance)
+        return {
+            "symbol": symbol,
+            "from_date": from_date,
+            "to_date": to_date,
+            "daily_signals": [
+                {
+                    "date": d.date,
+                    "composite_score": d.composite_score,
+                    "article_count": d.article_count,
+                    "articles": [
+                        {
+                            "article_id": a.article_id,
+                            "title": a.title,
+                            "url": a.url,
+                            "source": a.source,
+                            "published_at": a.published_at,
+                            "ticker_relevance": a.ticker_relevance,
+                            "impact_horizon": a.impact_horizon,
+                            "horizon_weight": a.horizon_weight,
+                            "sentiment_score": a.sentiment_score,
+                            "sentiment_confidence": a.sentiment_confidence,
+                            "contribution_weight": a.contribution_weight,
+                            "raw_contribution": a.raw_contribution,
+                        }
+                        for a in d.articles
+                    ],
+                }
+                for d in daily
             ],
         }
     except Exception as e:
@@ -489,3 +559,8 @@ else:
     @app.get("/")
     def index():
         return {"message": "Chưa có thư mục web/. Tạo web/index.html và web/static/ rồi chạy lại."}
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("api:app", host="0.0.0.0", port=8000, reload=True)

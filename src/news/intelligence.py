@@ -252,3 +252,32 @@ def enrich_article(
 
 def get_horizon_weight(horizon: str) -> float:
     return HORIZON_WEIGHTS.get(horizon, 1.0)
+
+
+# --- Explainability: human-readable "why it matters" (used by engine for dashboards) ---
+WHY_IT_MATTERS = {
+    "earnings": "Kết quả kinh doanh ảnh hưởng trực tiếp đến giá cổ phiếu.",
+    "legal": "Tin pháp lý có thể gây biến động giá trong ngắn hạn.",
+    "macro": "Yếu tố vĩ mô tác động đến toàn thị trường.",
+    "operations": "Hoạt động sản xuất kinh doanh phản ánh triển vọng công ty.",
+    "guidance": "Hướng dẫn kỳ vọng của ban lãnh đạo quan trọng cho nhà đầu tư.",
+    "ma": "M&A thường tạo biến động mạnh và cơ hội định giá lại.",
+    "dividend": "Cổ tức ảnh hưởng dòng tiền và kỳ vọng cổ đông.",
+    "other": "Tin chung liên quan đến ngành hoặc thị trường.",
+}
+
+HORIZON_LABELS = {
+    "intraday": "Trong phiên",
+    "short_term": "Ngắn hạn (1–2 tuần)",
+    "long_term": "Dài hạn (1+ tháng)",
+}
+
+
+def why_it_matters_text(event_type: str, sentiment: float) -> str:
+    """One-line explanation for dashboards. Used by News Intelligence Engine."""
+    base = WHY_IT_MATTERS.get(event_type, WHY_IT_MATTERS["other"])
+    if sentiment > 0.2:
+        return base + " Tín hiệu tích cực."
+    if sentiment < -0.2:
+        return base + " Tín hiệu cần thận trọng."
+    return base
