@@ -68,3 +68,6 @@ Thumbs.db
 # Word documents temporary
 ~$*.docx
 ~$*.doc
+
+# Personal Study Hub
+learning_hub/
