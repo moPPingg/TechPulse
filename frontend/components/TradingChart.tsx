@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createChart, ColorType, IChartApi, ISeriesApi, LineStyle } from "lightweight-charts";
 
 export default function TradingChart() {
     const chartContainerRef = useRef<HTMLDivElement>(null);
     const chartRef = useRef<IChartApi | null>(null);
     const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
+    const [ticker, setTicker] = useState("FPT");
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         if (!chartContainerRef.current) return;
@@ -31,100 +33,71 @@ export default function TradingChart() {
             wickDownColor: "#EF4444",
         });
 
-        // 1. Generate realistic synthetic OHLC data
-        const mockData = [];
-        let currentPrice = 100;
-        const now = new Date();
-
-        for (let i = 200; i >= 0; i--) {
-            const date = new Date(now);
-            date.setDate(date.getDate() - i);
-
-            // Generate some structured swings
-            const trend = Math.sin(i / 10) * 5;
-            const open = currentPrice;
-            const close = open + trend + (Math.random() * 4 - 2);
-            const high = Math.max(open, close) + Math.random() * 3;
-            const low = Math.min(open, close) - Math.random() * 3;
-            currentPrice = close;
-
-            mockData.push({
-                time: date.toISOString().split("T")[0],
-                open, high, low, close
-            });
-        }
-        candlestickSeries.setData(mockData);
-
-        // 2. Heuristic SMC Logic (Replicated in TS for UI Demo)
-        const lookbackWindow = 5;
-        const swingHighs = [];
-        const swingLows = [];
-        const markers: any[] = [];
-
-        // Find Swings
-        for (let i = lookbackWindow; i < mockData.length - lookbackWindow; i++) {
-            let isHigh = true;
-            let isLow = true;
-            for (let j = i - lookbackWindow; j <= i + lookbackWindow; j++) {
-                if (mockData[j].high > mockData[i].high) isHigh = false;
-                if (mockData[j].low < mockData[i].low) isLow = false;
-            }
-            if (isHigh) swingHighs.push({ idx: i, price: mockData[i].high, time: mockData[i].time });
-            if (isLow) swingLows.push({ idx: i, price: mockData[i].low, time: mockData[i].time });
-        }
-
-        // 3. Mark BOS / CHoCH (Price Lines for Visuals)
-        let trend = 0;
-        for (let i = 1; i < swingHighs.length; i++) {
-            if (swingHighs[i].price > swingHighs[i - 1].price) {
-                const label = trend === 1 ? "BOS" : "CHoCH";
-                trend = 1;
-                candlestickSeries.createPriceLine({
-                    price: swingHighs[i - 1].price,
-                    color: '#3b82f6',
-                    lineWidth: 2,
-                    lineStyle: LineStyle.Dashed,
-                    axisLabelVisible: true,
-                    title: `Bullish ${label}`,
-                });
-            }
-        }
-        for (let i = 1; i < swingLows.length; i++) {
-            if (swingLows[i].price < swingLows[i - 1].price) {
-                const label = trend === -1 ? "BOS" : "CHoCH";
-                trend = -1;
-                candlestickSeries.createPriceLine({
-                    price: swingLows[i - 1].price,
-                    color: '#ef4444',
-                    lineWidth: 2,
-                    lineStyle: LineStyle.Dotted,
-                    axisLabelVisible: true,
-                    title: `Bearish ${label}`,
-                });
-            }
-        }
-
-        // 4. Mark AI Execution Signals (Liquidity Sweeps)
-        // We inject mock LSTM signals where anomalous deep wicks occur
-        for (let i = 2; i < mockData.length; i++) {
-            const candle = mockData[i];
-            const wickRatio = (Math.min(candle.open, candle.close) - candle.low) / (candle.high - candle.low + 0.01);
-
-            if (wickRatio > 0.65 && candle.close > candle.open) {
-                markers.push({
-                    time: candle.time,
-                    position: 'belowBar',
-                    color: '#10B981',
-                    shape: 'arrowUp',
-                    text: 'AI BUY (Sweep)',
-                    size: 2
-                });
-            }
-        }
-        candlestickSeries.setMarkers(markers);
-
         chartRef.current = chart;
         seriesRef.current = candlestickSeries;
+
+        const fetchData = async () => {
+            setLoading(true);
+            try {
+                // Fetch real data from FastAPI backend
+                const response = await fetch(`http://localhost:8000/api/v1/chart-data/${ticker}?days=200`);
+                if (!response.ok) throw new Error("Network response was not ok");
+                const data = await response.json();
+
+                // 1. Set OHLCV Data
+                candlestickSeries.setData(data.ohlcv);
+
+                const markers: any[] = [];
+
+                // 2. Mark AI Execution Signals (Liquidity Sweeps)
+                data.action_signals.forEach((signal: any) => {
+                    markers.push({
+                        time: signal.time,
+                        position: 'belowBar',
+                        color: '#10B981',
+                        shape: 'arrowUp',
+                        text: `AI BUY (${signal.score.toFixed(2)})`,
+                        size: 2
+                    });
+                });
+                candlestickSeries.setMarkers(markers);
+
+                // 3. Mark BOS / CHoCH (Price Lines)
+                // BOS Lines
+                data.smc.bos.forEach((marker: any) => {
+                    candlestickSeries.createPriceLine({
+                        price: marker.price,
+                        color: marker.direction === 'bullish' ? '#3b82f6' : '#ef4444',
+                        lineWidth: 2,
+                        lineStyle: LineStyle.Dashed,
+                        axisLabelVisible: true,
+                        title: `${marker.direction === 'bullish' ? 'Bull' : 'Bear'} BOS`,
+                    });
+                });
+
+                // CHoCH Lines
+                data.smc.choch.forEach((marker: any) => {
+                    candlestickSeries.createPriceLine({
+                        price: marker.price,
+                        color: marker.direction === 'bullish' ? '#3b82f6' : '#ef4444',
+                        lineWidth: 2,
+                        lineStyle: LineStyle.Dotted,
+                        axisLabelVisible: true,
+                        title: `${marker.direction === 'bullish' ? 'Bull' : 'Bear'} CHoCH`,
+                    });
+                });
+
+                // Automatically fit content
+                chart.timeScale().fitContent();
+
+            } catch (error) {
+                console.error("Error fetching chart data:", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchData();
 
         const handleResize = () => {
             if (chartContainerRef.current && chartRef.current) {
@@ -138,17 +111,32 @@ export default function TradingChart() {
             window.removeEventListener("resize", handleResize);
             chart.remove();
         };
-    }, []);
+    }, [ticker]);
 
     return (
-        <div className="w-full h-[600px] bg-gray-900 border border-gray-800 rounded-lg overflow-hidden flex flex-col">
-            <div className="px-4 py-3 border-b border-gray-800 flex justify-between items-center">
+        <div className="w-full h-[600px] bg-gray-900 border border-gray-800 rounded-lg overflow-hidden flex flex-col relative">
+            <div className="px-4 py-3 border-b border-gray-800 flex justify-between items-center z-10 bg-gray-900">
                 <div className="flex items-center space-x-4">
-                    <h2 className="text-white font-semibold">Green Dragon Heuristic UI</h2>
-                    <span className="text-xs font-bold text-blue-400 bg-blue-900/30 px-2 py-1 rounded border border-blue-800">BOS / CHoCH</span>
-                    <span className="text-xs font-bold text-green-400 bg-green-900/30 px-2 py-1 rounded border border-green-800">AI Signals</span>
+                    <h2 className="text-white font-semibold">Green Dragon Live Feed</h2>
+                    <select
+                        value={ticker}
+                        onChange={(e) => setTicker(e.target.value)}
+                        className="bg-gray-800 text-white text-sm px-3 py-1 rounded border border-gray-700 outline-none focus:border-green-500"
+                    >
+                        <option value="FPT">FPT</option>
+                        <option value="MBB">MBB</option>
+                        <option value="SSI">SSI</option>
+                        <option value="HPG">HPG</option>
+                        <option value="VNM">VNM</option>
+                        <option value="MWG">MWG</option>
+                    </select>
+                    <span className="text-xs font-bold text-blue-400 bg-blue-900/30 px-2 py-1 rounded border border-blue-800">SMC (BOS/CHoCH)</span>
+                    <span className="text-xs font-bold text-green-400 bg-green-900/30 px-2 py-1 rounded border border-green-800">LSTM Action (Threshold 0.635)</span>
                 </div>
-                <span className="text-xs text-gray-500">Heuristic Overlay Mode Active</span>
+                <div className="flex items-center space-x-2">
+                    {loading && <span className="text-xs text-green-400 animate-pulse">Syncing Engine...</span>}
+                    <span className="text-xs text-gray-500">Real-time Optuna Evaluator Active</span>
+                </div>
             </div>
             <div ref={chartContainerRef} className="flex-1 w-full relative" />
         </div>
