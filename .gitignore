@@ -71,3 +71,36 @@ Thumbs.db
 
 # Personal Study Hub
 learning_hub/
+
+# ----------------------------------------------------------------------
+# Node.js & Next.js Frontend Framework
+# ----------------------------------------------------------------------
+# dependencies
+frontend/node_modules
+frontend/.pnp
+frontend/.pnp.js
+
+# testing
+frontend/coverage
+
+# next.js
+frontend/.next/
+frontend/out/
+
+# production
+frontend/build
+
+# misc
+frontend/.DS_Store
+frontend/*.pem
+
+# debug
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+
+# local env files
+frontend/.env*.local
+
+# vercel
+frontend/.vercel
