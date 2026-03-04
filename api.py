@@ -609,42 +609,52 @@ def get_chart_data_v1(ticker: str, days: int = 300):
         dt_str = row["date"].strftime("%Y-%m-%d")
         ohlcv.append({
             "time": dt_str,
-            "open": row["open"],
-            "high": row["high"],
-            "low": row["low"],
-            "close": row["close"],
-            "volume": row.get("volume", 0)
+            "open": float(row["open"]),
+            "high": float(row["high"]),
+            "low": float(row["low"]),
+            "close": float(row["close"]),
+            "volume": float(row.get("volume", 0))
         })
 
-        wick_ratio = (min(row["open"], row["close"]) - row["low"]) / (row["high"] - row["low"] + 0.0001)
+        wick_ratio = (float(min(row["open"], row["close"])) - float(row["low"])) / (float(row["high"]) - float(row["low"]) + 0.0001)
 
         # Simulate On-the-fly "Best Validated Model" inference. 
         # (Using a combination of raw network forward pass + deep wick structural detection representing our tuned feature space)
         if model:
-            x = torch.tensor([[[row['open'], row['high'], row['low'], row['close'], row.get('volume', 0)]]], dtype=torch.float32)
+            x = torch.tensor([[[float(row['open']), float(row['high']), float(row['low']), float(row['close']), float(row.get('volume', 0))]]], dtype=torch.float32)
             with torch.no_grad():
-                base_score = model(x).item()
+                base_score = float(model(x).item())
         else:
-            base_score = np.random.uniform(0.4, 0.55)
+            base_score = float(np.random.uniform(0.4, 0.55))
 
         # Deep liquidity sweep, the trained LSTM is highly sensitive to this due to SMC features
         if wick_ratio > 0.65 and row["close"] > row["open"]:
-            base_score = np.random.uniform(0.65, 0.95)
+            base_score = float(np.random.uniform(0.65, 0.95))
 
         # Apply Optuna Strict Filter
         if base_score > THRESHOLD:
             action_signals.append({
                 "time": dt_str,
                 "score": round(base_score, 3),
-                "price": row["low"]
+                "price": float(row["low"])
             })
+
+    # Cast SMC markers to standard floats/ints as well to fix JSON serialization
+    for m in smc_markers["bos"] + smc_markers["choch"]:
+        m["price"] = float(m["price"])
+        m["start_idx"] = int(m["start_idx"])
+        m["end_idx"] = int(m["end_idx"])
+        
+    for m in smc_markers["order_blocks"]:
+        m["top"] = float(m["top"])
+        m["bottom"] = float(m["bottom"])
 
     return {
         "ticker": ticker,
         "ohlcv": ohlcv,
         "smc": smc_markers,
         "action_signals": action_signals,
-        "threshold": THRESHOLD
+        "threshold": float(THRESHOLD)
     }
 
 
