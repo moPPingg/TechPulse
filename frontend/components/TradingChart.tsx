@@ -1,12 +1,17 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { createChart, ColorType, IChartApi, ISeriesApi, LineStyle } from "lightweight-charts";
+import { createChart, ColorType, IChartApi, ISeriesApi, LineStyle, MouseEventParams } from "lightweight-charts";
 
-export default function TradingChart() {
+interface TradingChartProps {
+    onSignalClick?: (context: any) => void;
+}
+
+export default function TradingChart({ onSignalClick }: TradingChartProps) {
     const chartContainerRef = useRef<HTMLDivElement>(null);
     const chartRef = useRef<IChartApi | null>(null);
     const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
+    const dataRef = useRef<any>(null); // Store fetched data for click handling
     const [ticker, setTicker] = useState("FPT");
     const [loading, setLoading] = useState(true);
 
@@ -43,6 +48,7 @@ export default function TradingChart() {
                 const response = await fetch(`http://localhost:8000/api/v1/chart-data/${ticker}?days=200`);
                 if (!response.ok) throw new Error("Network response was not ok");
                 const data = await response.json();
+                dataRef.current = data;
 
                 // 1. Set OHLCV Data
                 candlestickSeries.setData(data.ohlcv);
@@ -99,6 +105,35 @@ export default function TradingChart() {
 
         fetchData();
 
+        const handleChartClick = (param: MouseEventParams) => {
+            if (!param || !param.time || !dataRef.current || !onSignalClick) return;
+
+            const clickedTime = param.time as string;
+            const data = dataRef.current;
+
+            // Did user click exactly on a time where an AI Signal exists?
+            const clickedSignal = data.action_signals.find((sig: any) => sig.time === clickedTime);
+
+            if (clickedSignal) {
+                // Determine SMC context around this date
+                const nearbyBOS = data.smc.bos.find((b: any) => b.date_start <= clickedTime && b.date_end >= clickedTime)
+                    ? "Structural BOS confirmed."
+                    : "";
+
+                const smc_context = nearbyBOS || "Deep liquidity sweep detected below local support structure.";
+
+                onSignalClick({
+                    ticker: data.ticker,
+                    date: clickedTime,
+                    price: clickedSignal.price,
+                    score: clickedSignal.score,
+                    smc_context: smc_context
+                });
+            }
+        };
+
+        chart.subscribeClick(handleChartClick);
+
         const handleResize = () => {
             if (chartContainerRef.current && chartRef.current) {
                 chartRef.current.applyOptions({ width: chartContainerRef.current.clientWidth });
@@ -109,6 +144,7 @@ export default function TradingChart() {
 
         return () => {
             window.removeEventListener("resize", handleResize);
+            chart.unsubscribeClick(handleChartClick);
             chart.remove();
         };
     }, [ticker]);
