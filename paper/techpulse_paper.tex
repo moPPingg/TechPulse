@@ -40,6 +40,8 @@ In recent years, Smart Money Concepts (SMC) have emerged as a robust paradigm to
 
 This study proposes the \textit{Green Dragon Trading System}, a novel automated trading architecture that successfully algorithmicizes Smart Money Concepts. By replacing lagging indicators with quantified SMC markers and multi-modal news sentiment, the system provides an institutional-grade analytical edge. We comprehensively benchmark four models---LightGBM, LSTM, iTransformer, and PatchTST---across robust Optuna Bayesian hyperparameter evaluations mapping strictly to validation Sharpe Ratios. Crucially, the system evaluates models via a Market Regime Benchmarking framework (categorizing Stable, Normal, and Extreme volatility) to identify the optimal predictive engine capable of providing Tail-Risk Protection.
 
+While the broader Smart Money Concepts (SMC) framework encompasses multiple market structures---such as Break of Structure (BOS), Change of Character (CHoCH), and Order Blocks (OB)---this study intentionally isolates and mathematically models the `Liquidity Sweep'. Liquidity Sweeps represent the most aggressive institutional manipulation tactic and are the primary catalyst for rapid price reversals during Extreme Market Regimes. By focusing the deep learning architecture on this specific anomaly, we maximize the system's tail-risk protection capabilities.
+
 The resulting Green Dragon framework replaces manual chart observation with a streamlined architectural process: it issues automated alerts based on robust algorithmic setups resistant to transaction costs (commission and slippage), and features an integrated AI Chatbot. Consequently, the framework empowers individual traders without succumbing to emotional strain.
 
 \section{Methodology \& Feature Engineering}
@@ -62,6 +64,20 @@ An institutional Liquidity Sweep ($LS_t$) is formalized as an indicator function
 LS_t = \begin{cases} 1, & \text{if } \text{Low}_t < L_t \land \text{Close}_t > L_t \land \text{Volume}_t > k \cdot \mu_{V,t} \\ 0, & \text{otherwise} \end{cases}
 \end{equation}
 This converts subjective SMC charting into a deterministic, learnable numerical feature matrix, where $k$ represents an anomalous volume threshold parameter (e.g., $k=1.5$).
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\linewidth]{images/fig1_liquidity_sweep_anatomy.png}
+\caption{Anatomy of an Institutional Liquidity Sweep, demonstrating the pierce of structural support ($L_t$) followed by an immediate reversal and anomalous volume confirmation.}
+\label{fig:sweep_anatomy}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.85\linewidth]{images/fig2_volume_histogram.png}
+\caption{Distribution of the Relative Volume Multiplier ($\mu_{V,t}$) across the 10-year dataset, highlighting the rarity of the $k=1.5$ threshold used to flag institutional intervention.}
+\label{fig:volume_hist}
+\end{figure}
 
 \subsection{Multimodal News Sentiment Integration}
 To augment the deterministic SMC sweep variables, we construct a News Intelligence layer that processes unstructured financial news streams. Articles are projected into a continuous semantic vector space via a Transformer encoder. A DeBERTa-v3 architecture subsequently conducts zero-shot classification to derive sentiment polarity (bullish, bearish, neutral) and fundamental event categorization. This text-based modality captures the macroeconomic catalysts often utilized to facilitate liquidity sweeps.
@@ -96,12 +112,28 @@ To eliminate manual tape reading, these Action Scores are ingested by a dual-mod
     \item \textbf{Integrated AI Chatbot:} Green Dragon features a sophisticated generative conversational interface. Traders can seamlessly trace the logic behind any generated alert via natural language interaction.
 \end{enumerate}
 
+In the deployment phase, the Green Dragon FinTech Application extends beyond pure algorithmic execution. The integrated Generative AI Chatbot acts as an educational interface for retail traders. Future iterations of the application's graphical user interface (GUI) will visually map supplementary SMC structural markers---such as Order Blocks and CHoCH---directly onto the charts. This allows the Chatbot to provide contextual, natural language explanations of the AI's Liquidity Sweep predictions, bridging the gap between complex quantitative models and retail user comprehension.
+
 \section{Experiments and Results}
 
 \subsection{Evaluation Metrics \& Optuna Framework}
 To ascertain the practical financial viability of the quantitative models on the SMC-News dataset, we simulate algorithmic portfolio returns to derive risk-adjusted metrics, specifically the Annualized Sharpe Ratio and Maximum Drawdown (MDD). The framework stringently prevents temporal data leakage by utilizing an expanding 252-day window to calculate a trailing 20-day historical volatility, reliably routing daily features into 3 continuous partitions: Regime 1 (Stable), Regime 2 (Normal), and Regime 3 (Extreme). 
 
 A continuous 3-way chronological split (64\% Train, 16\% Val, 20\% Test) is evaluated in connection with an Optuna optimization search isolating the ideal learning hyperparameters and optimal Long-Only predictive Action Score bounds required to surpass $0.25\%$ transaction decay.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.85\linewidth]{images/fig3_optuna_importance.png}
+\caption{Optuna Hyperparameter Importance evaluating the drivers of the LSTM Validation Sharpe Ratio.}
+\label{fig:optuna_importance}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\linewidth]{images/fig4_dynamic_threshold.png}
+\caption{Dynamic Threshold Optimization curve demonstrating the peak Validation Sharpe Ratio at the $\hat{y}=0.635$ confidence threshold.}
+\label{fig:dynamic_threshold}
+\end{figure}
 
 \subsection{Benchmarking Results}
 The evaluation results, predicting the actionable $T+1$ directional shift following structural shakeouts while overcoming the transaction latency within Out-Of-Sample partitions, are detailed in Table \ref{tab:benchmark}.
@@ -125,7 +157,35 @@ LSTM & -0.08 & \textbf{0.05} & \textbf{1.06} & \textbf{0.47} & -15.39\% & -17.54
 }
 \end{table}
 
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\linewidth]{images/fig5_benchmark_comparison.png}
+\caption{Predictive Engine Performance Comparison. LSTM uniquely thrives during Regime 3 (Extreme crashes), while LightGBM flatlines due to transaction costs.}
+\label{fig:benchmark_bar}
+\end{figure}
+
 The empirical evaluation confirms our core hypothesis regarding \textbf{Tail-Risk Protection}. The benchmarking results demonstrate that the ``all zeros'' performance of LightGBM across all regimes is a profound quantitative insight, not an error. To combat the $0.25\%$ transaction costs, Optuna optimization pushed the execution threshold of LightGBM to $0.729$---a confidence level it failed to reach out-of-sample. This flatlining rendered the model completely dormant and failing entirely to protect against tail-risk. In stark contrast, the \textbf{LSTM} architecture demonstrates exceptional defensive capability, generating a $1.06$ Sharpe Ratio uniquely in Regime 3 (Extreme panic).
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\linewidth]{images/fig6_cumulative_returns.png}
+\caption{Cumulative Portfolio Returns (10-Year Out-Of-Sample Simulation), demonstrating the Green Dragon system's ability to sidestep major market crashes.}
+\label{fig:cumulative_returns}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\linewidth]{images/fig7_drawdown_underwater.png}
+\caption{Drawdown Underwater Plot comparing the Benchmark index's severe capitulations against the LSTM's strictly controlled Maximum Drawdown curve.}
+\label{fig:underwater}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\linewidth]{images/fig8_signal_overlay.png}
+\caption{Green Dragon Execution Overlay demonstrating the raw price action alongside the AI's autonomous actionable markers ($\hat{y} > 0.635$).}
+\label{fig:signal_overlay}
+\end{figure}
 
 Ultimately, these findings explicitly address the three core research questions: (1) Deterministic SMC features successfully replace lagging indicators; (2) Deep longitudinal representations (LSTM) excel at decoding institutional footprints over gradient boosting; and (3) The optimized LSTM core within the Green Dragon FinTech system significantly improves retail survivability, restricting Maximum Drawdown to $-17.54\%$ over a decade while capturing extreme volatility alpha.
 
