@@ -13,6 +13,7 @@ export default function TradingChart({ onSignalClick }: TradingChartProps) {
     const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
     const dataRef = useRef<any>(null); // Store fetched data for click handling
     const [ticker, setTicker] = useState("FPT");
+    const [days, setDays] = useState(200);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -45,7 +46,7 @@ export default function TradingChart({ onSignalClick }: TradingChartProps) {
             setLoading(true);
             try {
                 // Fetch real data from FastAPI backend
-                const response = await fetch(`http://localhost:8000/api/v1/chart-data/${ticker}?days=200`);
+                const response = await fetch(`http://localhost:8000/api/v1/chart-data/${ticker}?days=${days}`);
                 if (!response.ok) throw new Error("Network response was not ok");
                 const data = await response.json();
                 dataRef.current = data;
@@ -68,30 +69,28 @@ export default function TradingChart({ onSignalClick }: TradingChartProps) {
                 });
                 candlestickSeries.setMarkers(markers);
 
-                // 3. Mark BOS / CHoCH (Price Lines)
-                // BOS Lines
-                data.smc.bos.forEach((marker: any) => {
-                    candlestickSeries.createPriceLine({
-                        price: marker.price,
-                        color: marker.direction === 'bullish' ? '#3b82f6' : '#ef4444',
-                        lineWidth: 2,
-                        lineStyle: LineStyle.Dashed,
-                        axisLabelVisible: true,
-                        title: `${marker.direction === 'bullish' ? 'Bull' : 'Bear'} BOS`,
-                    });
-                });
+                // 3. Mark BOS / CHoCH (Finite Price Lines)
+                // Filter to only the 5 most recent to avoid extreme clutter
+                const recentBOS = data.smc.bos.slice(-5);
+                const recentCHoCH = data.smc.choch.slice(-5);
 
-                // CHoCH Lines
-                data.smc.choch.forEach((marker: any) => {
-                    candlestickSeries.createPriceLine({
-                        price: marker.price,
+                const renderFiniteLine = (marker: any, isBOS: boolean) => {
+                    const lineSeries = chart.addLineSeries({
                         color: marker.direction === 'bullish' ? '#3b82f6' : '#ef4444',
                         lineWidth: 2,
-                        lineStyle: LineStyle.Dotted,
-                        axisLabelVisible: true,
-                        title: `${marker.direction === 'bullish' ? 'Bull' : 'Bear'} CHoCH`,
+                        lineStyle: isBOS ? LineStyle.Dashed : LineStyle.Dotted,
+                        crosshairMarkerVisible: false,
+                        lastValueVisible: false,
+                        priceLineVisible: false,
                     });
-                });
+                    lineSeries.setData([
+                        { time: marker.date_start, value: marker.price },
+                        { time: marker.date_end, value: marker.price }
+                    ]);
+                };
+
+                recentBOS.forEach((marker: any) => renderFiniteLine(marker, true));
+                recentCHoCH.forEach((marker: any) => renderFiniteLine(marker, false));
 
                 // Automatically fit content
                 chart.timeScale().fitContent();
@@ -111,22 +110,34 @@ export default function TradingChart({ onSignalClick }: TradingChartProps) {
             const clickedTime = param.time as string;
             const data = dataRef.current;
 
-            // Did user click exactly on a time where an AI Signal exists?
-            const clickedSignal = data.action_signals.find((sig: any) => sig.time === clickedTime);
+            // Find nearest signal within a 3-day window for robust clicking UX
+            if (!data.action_signals || data.action_signals.length === 0) return;
 
-            if (clickedSignal) {
+            let closestSignal = null;
+            let minDiff = Infinity;
+
+            for (const sig of data.action_signals) {
+                const diff = Math.abs(new Date(sig.time).getTime() - new Date(clickedTime).getTime());
+                if (diff < minDiff) {
+                    minDiff = diff;
+                    closestSignal = sig;
+                }
+            }
+
+            // 3 days in milliseconds = 3 * 24 * 60 * 60 * 1000 = 259200000
+            if (closestSignal && minDiff <= 259200000) {
                 // Determine SMC context around this date
                 const nearbyBOS = data.smc.bos.find((b: any) => b.date_start <= clickedTime && b.date_end >= clickedTime)
                     ? "Structural BOS confirmed."
                     : "";
 
-                const smc_context = nearbyBOS || "Deep liquidity sweep detected below local support structure.";
+                const smc_context = nearbyBOS || "Deep liquidity sweep detected strictly below local momentum.";
 
                 onSignalClick({
                     ticker: data.ticker,
-                    date: clickedTime,
-                    price: clickedSignal.price,
-                    score: clickedSignal.score,
+                    date: closestSignal.time, // Exact signal date
+                    price: closestSignal.price,
+                    score: closestSignal.score,
                     smc_context: smc_context
                 });
             }
@@ -147,7 +158,7 @@ export default function TradingChart({ onSignalClick }: TradingChartProps) {
             chart.unsubscribeClick(handleChartClick);
             chart.remove();
         };
-    }, [ticker]);
+    }, [ticker, days]);
 
     return (
         <div className="w-full h-[600px] bg-gray-900 border border-gray-800 rounded-lg overflow-hidden flex flex-col relative">
@@ -157,7 +168,7 @@ export default function TradingChart({ onSignalClick }: TradingChartProps) {
                     <select
                         value={ticker}
                         onChange={(e) => setTicker(e.target.value)}
-                        className="bg-gray-800 text-white text-sm px-3 py-1 rounded border border-gray-700 outline-none focus:border-green-500"
+                        className="bg-gray-800 text-white text-sm px-3 py-1 rounded border border-gray-700 outline-none focus:border-green-500 cursor-pointer"
                     >
                         <option value="FPT">FPT</option>
                         <option value="MBB">MBB</option>
@@ -166,8 +177,27 @@ export default function TradingChart({ onSignalClick }: TradingChartProps) {
                         <option value="VNM">VNM</option>
                         <option value="MWG">MWG</option>
                     </select>
-                    <span className="text-xs font-bold text-blue-400 bg-blue-900/30 px-2 py-1 rounded border border-blue-800">SMC (BOS/CHoCH)</span>
-                    <span className="text-xs font-bold text-green-400 bg-green-900/30 px-2 py-1 rounded border border-green-800">LSTM Action (Threshold 0.635)</span>
+
+                    {/* Timeframe Buttons */}
+                    <div className="flex space-x-1 border border-gray-700 rounded overflow-hidden">
+                        {[
+                            { label: '7D', val: 7 },
+                            { label: '1M', val: 30 },
+                            { label: '3M', val: 90 },
+                            { label: '1Y', val: 200 }
+                        ].map(tf => (
+                            <button
+                                key={tf.label}
+                                onClick={() => setDays(tf.val)}
+                                className={`px-3 py-1 text-xs font-semibold transition-colors ${days === tf.val ? 'bg-green-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}
+                            >
+                                {tf.label}
+                            </button>
+                        ))}
+                    </div>
+
+                    <span className="text-xs font-bold text-blue-400 bg-blue-900/30 px-2 py-1 rounded border border-blue-800 hidden md:inline">Finite SMC Segmented</span>
+                    <span className="text-xs font-bold text-green-400 bg-green-900/30 px-2 py-1 rounded border border-green-800 hidden md:inline">LSTM Action (Threshold 0.635)</span>
                 </div>
                 <div className="flex items-center space-x-2">
                     {loading && <span className="text-xs text-green-400 animate-pulse">Syncing Engine...</span>}
