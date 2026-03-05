@@ -189,6 +189,13 @@ The empirical evaluation confirms our core hypothesis regarding \textbf{Tail-Ris
 
 Ultimately, these findings explicitly address the three core research questions: (1) Deterministic SMC features successfully replace lagging indicators; (2) Deep longitudinal representations (LSTM) excel at decoding institutional footprints over gradient boosting; and (3) The optimized LSTM core within the Green Dragon FinTech system significantly improves retail survivability, restricting Maximum Drawdown to $-17.54\%$ over a decade while capturing extreme volatility alpha.
 
+\subsection{Research Limitations and Future Directions}
+While the Green Dragon framework demonstrates robust tail-risk protection, several limitations warrant consideration. First, the mathematical feature engineering currently isolates only the ``Liquidity Sweep''. Other critical SMC structures, such as Order Blocks (OB) and Change of Character (CHoCH), are utilized heuristically in the visual frontend but are not yet integrated into the LSTM's multidimensional tensor space. 
+
+Second, the empirical evaluation is constrained to the highly liquid VN30 index. The model's generalizability to low-liquidity environments, such as micro-cap equities or cryptocurrency markets, remains unverified, as institutional manipulation mechanics vary significantly across different asset classes. 
+
+Finally, as with all historically trained deep learning models, the architecture is inherently vulnerable to entirely novel ``Black Swan'' events that lack historical precedent. Future research should address these constraints by expanding the mathematical formulations of SMC markers and training the architecture on cross-asset multimodal corpora to enhance systemic generalizability.
+
 \section{Conclusion}
 The \textit{Green Dragon Trading System} redefines algorithmic trading for the retail sector by successfully quantifying deterministic Smart Money Concepts resistant to institutional manipulation. Through the mathematical formulation of Liquidity Sweeps and their integration with multimodal News Sentiment features, this research transitions predictive engineering from delayed technical indicators toward underlying structural realities. Our cross-validated Optuna evaluations confirmed classically scaled LSTM as the premier underlying model for this architecture mapping dynamic execution thresholds. Abstracted behind an intuitive AI Chatbot and automated alert suite, Green Dragon mitigates the psychological detriment of active trading, returning institutional-grade tail-risk protection and quantitative predictive analytics to the retail market.
 
