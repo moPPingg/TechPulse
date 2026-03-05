@@ -691,10 +691,18 @@ def chat_endpoint(req: ChatRequest):
         score = context.score
         smc = context.smc_context
         
-        reply = (f"**Green Dragon Quant AI:** On {date}, I executed a BUY signal for {ticker} at {price:,.0f} "
-                 f"because the LSTM Action Score reached **{score}** (exceeding our rigid Optuna threshold of 0.635). \n\n"
-                 f"**Market Context:** The model detected a high-probability institutional Liquidity Sweep occurring alongside "
-                 f"SMC structures ({smc}). This aligns perfectly with our backtested tail-risk protection strategy where smart money manipulates the lows before an impulsive reversal.")
+        # Highly Realistic Mock LLM Generator
+        confidence_level = "High" if score > 0.75 else "Moderate"
+        
+        reply = (f"**<Green Dragon Quant AI>** Analysis for **{ticker}** Execution on **{date}**\n\n"
+                 f"**Execution Price:** `{price:,.0f} VND`\n"
+                 f"**LSTM Action Score:** `{score}` (Threshold: 0.635)\n"
+                 f"**Confidence:** `{confidence_level}`\n\n"
+                 f"**Strategic Reasoning:**\n"
+                 f"The execution algorithm triggered a **BUY** at this specific juncture because the feature matrix detected a systemic market irregularity perfectly aligning with our tail-risk model.\n\n"
+                 f"**Market Context Interception:**\n"
+                 f"> *\"{smc}\"*\n\n"
+                 f"My deep learning architecture identifies this as institutional footprinting. By combining the profound Liquidity Sweep signature with the mathematically defined {confidence_level} structural anomaly, the Green Dragon system enters ahead of the retail herd to capture the incoming impulsive reversal.")
         
         return {"reply": reply}
 

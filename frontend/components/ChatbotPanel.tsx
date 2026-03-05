@@ -14,6 +14,7 @@ interface ChatContext {
     price: number;
     score: number;
     smc_context: string;
+    _t?: number;
 }
 
 interface ChatbotPanelProps {

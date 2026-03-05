@@ -16,6 +16,19 @@ export default function TradingChart({ onSignalClick }: TradingChartProps) {
     const [days, setDays] = useState(200);
     const [loading, setLoading] = useState(true);
 
+    const [tooltipData, setTooltipData] = useState<{
+        visible: boolean;
+        x: number;
+        y: number;
+        date: string;
+        open: string;
+        high: string;
+        low: string;
+        close: string;
+        volume: string;
+        signal: string;
+    } | null>(null);
+
     useEffect(() => {
         if (!chartContainerRef.current) return;
 
@@ -45,7 +58,6 @@ export default function TradingChart({ onSignalClick }: TradingChartProps) {
         const fetchData = async () => {
             setLoading(true);
             try {
-                // Fetch real data from FastAPI backend
                 const response = await fetch(`http://localhost:8000/api/v1/chart-data/${ticker}?days=${days}`);
                 if (!response.ok) throw new Error("Network response was not ok");
                 const data = await response.json();
@@ -138,12 +150,65 @@ export default function TradingChart({ onSignalClick }: TradingChartProps) {
                     date: closestSignal.time, // Exact signal date
                     price: closestSignal.price,
                     score: closestSignal.score,
-                    smc_context: smc_context
+                    smc_context: smc_context,
+                    _t: Date.now() // Ensure context trigger runs again
                 });
             }
         };
 
         chart.subscribeClick(handleChartClick);
+
+        const handleCrosshairMove = (param: MouseEventParams) => {
+            if (!param.point || !param.time || param.point.x < 0 || param.point.x > chartContainerRef.current!.clientWidth || param.point.y < 0 || param.point.y > chartContainerRef.current!.clientHeight) {
+                setTooltipData(null);
+                return;
+            }
+
+            const data = dataRef.current;
+            if (!data) return;
+
+            const timeStr = param.time as string;
+            const barData: any = param.seriesData.get(seriesRef.current!);
+
+            if (!barData) {
+                setTooltipData(null);
+                return;
+            }
+
+            // Find matching SMC labels at this time
+            let labels = [];
+
+            const matchMarker = (marker: any) => marker.date_start <= timeStr && marker.date_end >= timeStr;
+            const isBOS = data.smc.bos.some(matchMarker);
+            if (isBOS) labels.push("BOS");
+
+            const isCHoCH = data.smc.choch.some(matchMarker);
+            if (isCHoCH) labels.push("CHoCH");
+
+            // Limit order blocks search if array exists
+            if (data.smc.order_blocks && data.smc.order_blocks.length > 0) {
+                const isOB = data.smc.order_blocks.some((marker: any) => marker.start_date <= timeStr && marker.end_date >= timeStr);
+                if (isOB) labels.push("Order Block");
+            }
+
+            const hoveredSig = data.action_signals.find((s: any) => s.time === timeStr);
+            if (hoveredSig) labels.push(`AI BUY (${hoveredSig.score.toFixed(2)})`);
+
+            setTooltipData({
+                visible: true,
+                x: param.point.x,
+                y: param.point.y,
+                date: timeStr,
+                open: barData.open.toLocaleString(),
+                high: barData.high.toLocaleString(),
+                low: barData.low.toLocaleString(),
+                close: barData.close.toLocaleString(),
+                volume: data.ohlcv.find((c: any) => c.time === timeStr)?.volume?.toLocaleString() || "N/A",
+                signal: labels.length > 0 ? labels.join(" | ") : "None"
+            });
+        };
+
+        chart.subscribeCrosshairMove(handleCrosshairMove);
 
         const handleResize = () => {
             if (chartContainerRef.current && chartRef.current) {
@@ -156,12 +221,13 @@ export default function TradingChart({ onSignalClick }: TradingChartProps) {
         return () => {
             window.removeEventListener("resize", handleResize);
             chart.unsubscribeClick(handleChartClick);
+            chart.unsubscribeCrosshairMove(handleCrosshairMove);
             chart.remove();
         };
     }, [ticker, days]);
 
     return (
-        <div className="w-full h-[600px] bg-gray-900 border border-gray-800 rounded-lg overflow-hidden flex flex-col relative">
+        <div className="w-full h-[600px] bg-gray-900 border border-gray-800 rounded-lg overflow-hidden flex flex-col relative" style={{ userSelect: "none" }}>
             <div className="px-4 py-3 border-b border-gray-800 flex justify-between items-center z-10 bg-gray-900">
                 <div className="flex items-center space-x-4">
                     <h2 className="text-white font-semibold">Green Dragon Live Feed</h2>
@@ -205,6 +271,33 @@ export default function TradingChart({ onSignalClick }: TradingChartProps) {
                 </div>
             </div>
             <div ref={chartContainerRef} className="flex-1 w-full relative" />
+
+            {/* Hover Crosshair Legend Tooltip */}
+            {tooltipData && tooltipData.visible && (
+                <div
+                    className="absolute z-20 pointer-events-none bg-gray-900/90 border border-gray-700 shadow-xl rounded p-3 text-xs text-white"
+                    style={{
+                        left: tooltipData.x > 250 ? tooltipData.x - 220 : tooltipData.x + 20,
+                        top: tooltipData.y > 150 ? tooltipData.y - 120 : tooltipData.y + 20,
+                        minWidth: '200px'
+                    }}
+                >
+                    <div className="font-bold text-blue-400 mb-2 border-b border-gray-700 pb-1">{tooltipData.date}</div>
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                        <span className="text-gray-400">Open:</span> <span>{tooltipData.open}</span>
+                        <span className="text-gray-400">High:</span> <span>{tooltipData.high}</span>
+                        <span className="text-gray-400">Low:</span> <span>{tooltipData.low}</span>
+                        <span className="text-gray-400">Close:</span> <span>{tooltipData.close}</span>
+                        <span className="text-gray-400">Vol:</span> <span>{tooltipData.volume}</span>
+                    </div>
+                    {tooltipData.signal !== "None" && (
+                        <div className="mt-2 pt-2 border-t border-gray-700">
+                            <span className="text-green-400 font-bold">Signal: </span>
+                            {tooltipData.signal}
+                        </div>
+                    )}
+                </div>
+            )}
         </div>
     );
 }
