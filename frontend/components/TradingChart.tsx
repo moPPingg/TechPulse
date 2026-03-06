@@ -15,6 +15,7 @@ export default function TradingChart({ onSignalClick }: TradingChartProps) {
     const [ticker, setTicker] = useState("FPT");
     const [days, setDays] = useState(200);
     const [loading, setLoading] = useState(true);
+    const [dateRange, setDateRange] = useState({ start: "", end: "" });
 
     const [tooltipData, setTooltipData] = useState<{
         visible: boolean;
@@ -65,6 +66,14 @@ export default function TradingChart({ onSignalClick }: TradingChartProps) {
 
                 // 1. Set OHLCV Data
                 candlestickSeries.setData(data.ohlcv);
+
+                // Extract dynamic date range
+                if (data.ohlcv.length > 0) {
+                    setDateRange({
+                        start: data.ohlcv[0].time,
+                        end: data.ohlcv[data.ohlcv.length - 1].time
+                    });
+                }
 
                 const markers: any[] = [];
 
@@ -262,8 +271,18 @@ export default function TradingChart({ onSignalClick }: TradingChartProps) {
                         ))}
                     </div>
 
-                    <span className="text-xs font-bold text-blue-400 bg-blue-900/30 px-2 py-1 rounded border border-blue-800 hidden md:inline">Finite SMC Segmented</span>
-                    <span className="text-xs font-bold text-green-400 bg-green-900/30 px-2 py-1 rounded border border-green-800 hidden md:inline">LSTM Action (Threshold 0.635)</span>
+                    {/* Dynamic Date Range Indicator */}
+                    {dateRange.start && dateRange.end && (
+                        <div className="hidden lg:flex items-center space-x-2 text-xs text-gray-400 bg-gray-800/50 px-3 py-1.5 rounded border border-gray-700">
+                            <span>Showing Period:</span>
+                            <span className="text-gray-200 font-medium">{dateRange.start}</span>
+                            <span>to</span>
+                            <span className="text-gray-200 font-medium">{dateRange.end}</span>
+                        </div>
+                    )}
+
+                    <span className="text-xs font-bold text-blue-400 bg-blue-900/30 px-2 py-1 rounded border border-blue-800 hidden xl:inline">Finite SMC</span>
+                    <span className="text-xs font-bold text-green-400 bg-green-900/30 px-2 py-1 rounded border border-green-800 hidden xl:inline">LSTM Act 0.635</span>
                 </div>
                 <div className="flex items-center space-x-2">
                     {loading && <span className="text-xs text-green-400 animate-pulse">Syncing Engine...</span>}
