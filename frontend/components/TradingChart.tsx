@@ -233,10 +233,10 @@ export default function TradingChart({ onSignalClick }: TradingChartProps) {
 
     return (
         <div className="w-full max-w-full h-[600px] bg-gray-900 border border-gray-800 rounded-lg overflow-x-hidden flex flex-col relative" style={{ userSelect: "none" }}>
-            <div className="px-4 py-3 border-b border-gray-800 z-10 bg-gray-900">
-                <div className="flex flex-row flex-wrap items-center justify-start w-full max-w-full gap-4 p-2">
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 flex-shrink-0">
-                        <h2 className="text-white font-semibold">Green Dragon Live Feed</h2>
+            <div className="px-3 py-2 border-b border-gray-800 z-10 bg-gray-900 h-auto">
+                <div className="flex flex-row flex-nowrap items-center justify-between w-full h-auto gap-2 p-1">
+                    <div className="flex flex-nowrap items-center gap-x-3 flex-shrink-0">
+                        <h2 className="text-white font-semibold whitespace-nowrap text-sm hidden md:block">Green Dragon Live Feed</h2>
                         <select
                             value={ticker}
                             onChange={(e) => setTicker(e.target.value)}
@@ -261,7 +261,7 @@ export default function TradingChart({ onSignalClick }: TradingChartProps) {
                                 <button
                                     key={tf.label}
                                     onClick={() => setDays(tf.val)}
-                                    className={`px-3 py-1 text-xs font-semibold transition-colors ${days === tf.val ? 'bg-green-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}
+                                    className={`px-2 py-1 text-[11px] font-semibold transition-colors whitespace-nowrap ${days === tf.val ? 'bg-green-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}
                                 >
                                     {tf.label}
                                 </button>
@@ -270,21 +270,21 @@ export default function TradingChart({ onSignalClick }: TradingChartProps) {
 
                         {/* Dynamic Date Range Indicator */}
                         {dateRange.start && dateRange.end && (
-                            <div className="flex items-center space-x-2 text-xs text-gray-400 bg-gray-800/50 px-3 py-1.5 rounded border border-gray-700 flex-shrink-0">
-                                <span>Showing Period:</span>
+                            <div className="flex items-center space-x-1.5 text-[11px] text-gray-400 bg-gray-800/50 px-2 py-1 rounded border border-gray-700 flex-shrink-0 whitespace-nowrap hidden sm:flex">
+                                <span>Period:</span>
                                 <span className="text-gray-200 font-medium">{dateRange.start}</span>
-                                <span>to</span>
+                                <span>-</span>
                                 <span className="text-gray-200 font-medium">{dateRange.end}</span>
                             </div>
                         )}
 
-                        <span className="text-xs font-bold text-blue-400 bg-blue-900/30 px-2 py-1 rounded border border-blue-800 hidden xl:inline flex-shrink-0">Finite SMC</span>
-                        <span className="text-xs font-bold text-green-400 bg-green-900/30 px-2 py-1 rounded border border-green-800 hidden xl:inline flex-shrink-0">LSTM Act 0.635</span>
+                        <span className="text-[11px] font-bold text-blue-400 bg-blue-900/30 px-1.5 py-1 rounded border border-blue-800 flex-shrink-0 whitespace-nowrap hidden xl:inline">Finite SMC</span>
+                        <span className="text-[11px] font-bold text-green-400 bg-green-900/30 px-1.5 py-1 rounded border border-green-800 flex-shrink-0 whitespace-nowrap hidden xl:inline">LSTM 0.635</span>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-2 flex-shrink-0 ml-auto">
-                        {loading && <span className="text-xs text-green-400 animate-pulse">Syncing Engine...</span>}
-                        <span className="text-xs text-gray-500">Real-time Optuna Evaluator Active</span>
+                    <div className="flex flex-nowrap items-center gap-2 flex-shrink-0 ml-auto">
+                        {loading && <span className="text-[11px] text-green-400 animate-pulse whitespace-nowrap">Syncing Engine...</span>}
+                        <span className="text-[11px] text-gray-500 whitespace-nowrap hidden 2xl:inline">Real-time Optuna Active</span>
                     </div>
                 </div>
             </div>
@@ -293,9 +293,9 @@ export default function TradingChart({ onSignalClick }: TradingChartProps) {
 
                 {/* Hover Crosshair Legend Tooltip */}
                 {tooltipData && tooltipData.visible && (
-                    <div className="absolute top-4 left-4 z-50 flex flex-col gap-1.5 p-3 rounded-md bg-gray-900/85 backdrop-blur-sm border border-gray-700 pointer-events-none shadow-lg max-w-[90%]">
-                        <div className="text-sm font-semibold text-gray-100">Date: {tooltipData.date}</div>
-                        <div className="flex flex-row flex-wrap items-center gap-x-4 gap-y-1 text-xs font-mono text-gray-300">
+                    <div className="absolute top-4 left-4 z-50 flex flex-col gap-1.5 p-3 rounded-md bg-gray-900/85 backdrop-blur-sm border border-gray-700 pointer-events-none shadow-lg h-auto min-h-min">
+                        <div className="text-[11px] font-semibold text-gray-100 whitespace-nowrap">Date: {tooltipData.date}</div>
+                        <div className="flex flex-row flex-nowrap items-center gap-2 text-[11px] font-mono text-gray-300 whitespace-nowrap">
                             <span><span className="text-gray-500">O:</span> {tooltipData.open}</span>
                             <span><span className="text-gray-500">H:</span> {tooltipData.high}</span>
                             <span><span className="text-gray-500">L:</span> {tooltipData.low}</span>
