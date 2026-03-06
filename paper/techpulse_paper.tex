@@ -38,7 +38,7 @@ Retail trading is traditionally burdened by emotional biases, impulsive decision
 
 In recent years, Smart Money Concepts (SMC) have emerged as a robust paradigm to interpret true market mechanics. SMC focuses on structural elements such as order block formations, fair value gaps, and, crucially, liquidity sweeps. Despite its efficacy, SMC remains largely a discretionary framework. Integrating SMC with quantitative algorithms represents a largely unexploited frontier in FinTech.
 
-This study proposes the \textit{Green Dragon Trading System}, a novel automated trading architecture that successfully algorithmicizes Smart Money Concepts. By replacing lagging indicators with quantified SMC markers and multi-modal news sentiment, the system provides an institutional-grade analytical edge. We comprehensively benchmark four models---LightGBM, LSTM, iTransformer, and PatchTST---across robust Optuna Bayesian hyperparameter evaluations mapping strictly to validation Sharpe Ratios. Crucially, the system evaluates models via a Market Regime Benchmarking framework (categorizing Stable, Normal, and Extreme volatility) to identify the optimal predictive engine capable of providing Tail-Risk Protection.
+Recent comprehensive reviews of machine learning and deep learning techniques in stock market prediction highlight several critical open challenges. Most notably, current models struggle with extreme financial noise, lack of interpretability, and severe vulnerability to sudden market regime shifts or "Black Swan" events \cite{mdpi2024review}. Furthermore, standard predictive architectures often fail to account for real-world transaction costs, rendering them ineffective in practical trading environments. To address these exact limitations, this study proposes the \textit{Green Dragon Trading System}, a novel automated trading architecture that successfully algorithmicizes Smart Money Concepts. By replacing lagging indicators with quantified SMC markers and multi-modal news sentiment (Hybrid Approach), and strictly optimizing for the Sharpe Ratio via Optuna, the system provides an institutional-grade, cost-adjusted analytical edge.
 
 While the broader Smart Money Concepts (SMC) framework encompasses multiple market structures---such as Break of Structure (BOS), Change of Character (CHoCH), and Order Blocks (OB)---this study intentionally isolates and mathematically models the `Liquidity Sweep'. Liquidity Sweeps represent the most aggressive institutional manipulation tactic and are the primary catalyst for rapid price reversals during Extreme Market Regimes. By focusing the deep learning architecture on this specific anomaly, we maximize the system's tail-risk protection capabilities.
 
@@ -220,6 +220,9 @@ Ke, G., et al.: LightGBM: A Highly Efficient Gradient Boosting Decision Tree. In
 
 \bibitem{hochreiter1997} 
 Hochreiter, S., Schmidhuber, J.: Long Short-Term Memory. Neural Computation (1997)
+\bibitem{mdpi2024review} 
+Sarker, I.H., et al.: Stock Market Prediction Using Machine Learning and Deep Learning Techniques: A Review. AppliedMath 5, 00076 (2024).
+
 \end{thebibliography}
 
 \end{document}
