@@ -13,7 +13,7 @@ export default function TradingChart({ onSignalClick }: TradingChartProps) {
     const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
     const dataRef = useRef<any>(null); // Store fetched data for click handling
     const [ticker, setTicker] = useState("FPT");
-    const [days, setDays] = useState(200);
+    const [timeframe, setTimeframe] = useState('1Y');
     const [loading, setLoading] = useState(true);
     const [dateRange, setDateRange] = useState({ start: "", end: "" });
 
@@ -89,7 +89,7 @@ export default function TradingChart({ onSignalClick }: TradingChartProps) {
         const fetchData = async () => {
             setLoading(true);
             try {
-                const response = await fetch(`http://localhost:8000/api/v1/chart-data/${ticker}?days=${days}`);
+                const response = await fetch(`http://localhost:8000/api/v1/chart-data/${ticker}?days=400`);
                 if (!response.ok) throw new Error("Network response was not ok");
                 const data = await response.json();
                 dataRef.current = data;
@@ -322,7 +322,26 @@ export default function TradingChart({ onSignalClick }: TradingChartProps) {
             chart.unsubscribeCrosshairMove(handleCrosshairMove);
             chart.remove();
         };
-    }, [ticker, days]);
+    }, [ticker]);
+
+    const handleTimeframeClick = (tf: string) => {
+        if (!chartRef.current || !dataRef.current?.ohlcv?.length) return;
+        setTimeframe(tf);
+        const ohlcv = dataRef.current.ohlcv;
+        const lastDate = new Date(ohlcv[ohlcv.length - 1].time);
+        const startDate = new Date(lastDate);
+
+        if (tf === '7D') startDate.setDate(lastDate.getDate() - 7);
+        if (tf === '1M') startDate.setMonth(lastDate.getMonth() - 1);
+        if (tf === '3M') startDate.setMonth(lastDate.getMonth() - 3);
+        if (tf === '1Y') startDate.setFullYear(lastDate.getFullYear() - 1);
+        if (tf === 'ALL') { chartRef.current.timeScale().fitContent(); return; }
+
+        chartRef.current.timeScale().setVisibleRange({
+            from: startDate.toISOString().split('T')[0] as any,
+            to: lastDate.toISOString().split('T')[0] as any,
+        });
+    };
 
     return (
         <div className="flex-1 w-full min-h-0 relative rounded-lg border border-gray-800 overflow-hidden bg-gray-900 flex flex-col" style={{ userSelect: "none" }}>
@@ -343,15 +362,16 @@ export default function TradingChart({ onSignalClick }: TradingChartProps) {
                         {/* Timeframe Buttons */}
                         <div className="flex space-x-1 border border-gray-700 rounded overflow-hidden flex-shrink-0">
                             {[
-                                { label: '7D', val: 7 },
-                                { label: '1M', val: 30 },
-                                { label: '3M', val: 90 },
-                                { label: '1Y', val: 200 }
+                                { label: '7D', key: '7D' },
+                                { label: '1M', key: '1M' },
+                                { label: '3M', key: '3M' },
+                                { label: '1Y', key: '1Y' },
+                                { label: 'ALL', key: 'ALL' },
                             ].map(tf => (
                                 <button
-                                    key={tf.label}
-                                    onClick={() => setDays(tf.val)}
-                                    className={`px-2 py-1 text-[11px] font-semibold transition-colors whitespace-nowrap ${days === tf.val ? 'bg-green-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}
+                                    key={tf.key}
+                                    onClick={() => handleTimeframeClick(tf.key)}
+                                    className={`px-2 py-1 text-[11px] font-semibold transition-colors whitespace-nowrap ${timeframe === tf.key ? 'bg-green-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}
                                 >
                                     {tf.label}
                                 </button>
