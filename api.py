@@ -608,45 +608,84 @@ def get_chart_data_v1(ticker: str, days: int = 300):
         _logger.error(f"SMC marker extraction error: {e}")
         smc_markers = {"bos": [], "choch": [], "order_blocks": []}
 
-    # 2. LSTM Action Scores & Optuna Threshold
+    # 2. LSTM Action Scores with correct 7-feature / 20-step window inference
     try:
         from src.models.lstm import LSTMModel
-        model = LSTMModel(input_size=5, hidden_size=64, num_layers=2)
+        from sklearn.preprocessing import RobustScaler
+
+        LSTM_INPUT_SIZE = 7   # open, high, low, close, volume, ls_binary, ls_strength
+        WINDOW_SIZE_INF = 20  # must match training window
+
+        model = LSTMModel(input_size=LSTM_INPUT_SIZE, hidden_size=64, num_layers=2)
         model_path = Path("models/best_lstm_model.pt")
         if model_path.exists():
-            model.load_state_dict(torch.load(model_path, map_location=torch.device('cpu')))
+            model.load_state_dict(torch.load(model_path, map_location=torch.device('cpu'), weights_only=True))
         model.eval()
+
+        # --- Merge SMC features (ls_binary, ls_strength) into df ---
+        smc_path = Path("data/processed/smc_features.csv")
+        if smc_path.exists():
+            smc_df = pd.read_csv(smc_path)
+            smc_df['date'] = pd.to_datetime(smc_df['date'])
+            smc_t = smc_df[smc_df['symbol'] == ticker][['date', 'ls_binary', 'ls_strength']]
+            df = pd.merge(df, smc_t, on='date', how='left')
+            df['ls_binary']   = df['ls_binary'].fillna(0)
+            df['ls_strength'] = df['ls_strength'].fillna(0)
+        else:
+            df['ls_binary']   = 0.0
+            df['ls_strength'] = 0.0
+
+        # --- Normalise exactly like training (pct_change + RobustScaler) ---
+        inf_df = df.copy()
+        inf_df['open']   = inf_df['open'].pct_change()
+        inf_df['high']   = inf_df['high'].pct_change()
+        inf_df['low']    = inf_df['low'].pct_change()
+        inf_df['close']  = inf_df['close'].pct_change()
+        inf_df['volume'] = np.log1p(inf_df['volume']).diff()
+        inf_df.dropna(inplace=True)
+        scaler = RobustScaler()
+        inf_df[['open','high','low','close','volume']] = scaler.fit_transform(
+            inf_df[['open','high','low','close','volume']])
+
+        FEAT_COLS_INF = ['open','high','low','close','volume','ls_binary','ls_strength']
+        feat_matrix = inf_df[FEAT_COLS_INF].values.astype(np.float32)
+        date_vals   = inf_df['date'].dt.strftime('%Y-%m-%d').values
+        close_vals  = inf_df['close'].values
+
+        # Map model scores back to original df dates for response
+        score_map: dict = {}
+        if len(feat_matrix) > WINDOW_SIZE_INF:
+            with torch.no_grad():
+                for wi in range(WINDOW_SIZE_INF, len(feat_matrix)):
+                    window = feat_matrix[wi - WINDOW_SIZE_INF : wi]
+                    x = torch.tensor(window, dtype=torch.float32).unsqueeze(0)
+                    score = float(model(x).item())
+                    score_map[date_vals[wi]] = score
+
     except Exception as e:
-        _logger.error(f"Failed to load LSTMModel: {e}")
+        _logger.error(f"LSTM 7-feat inference error: {e}")
         model = None
+        score_map = {}
 
     action_signals = []
-    THRESHOLD = 0.635  # The Optuna Dynamic Threshold discovered during benchmarking
+    THRESHOLD = 0.635  # Optuna-discovered Sharpe-optimal threshold
     ohlcv = []
 
     for i, row in df.iterrows():
         dt_str = row["date"].strftime("%Y-%m-%d")
         ohlcv.append({
-            "time": dt_str,
-            "open": float(row["open"]),
-            "high": float(row["high"]),
-            "low": float(row["low"]),
-            "close": float(row["close"]),
+            "time":   dt_str,
+            "open":   float(row["open"]),
+            "high":   float(row["high"]),
+            "low":    float(row["low"]),
+            "close":  float(row["close"]),
             "volume": float(row.get("volume", 0))
         })
 
-        # Pure ML Inference from the loaded Optuna-validated model
-        if model:
-            x = torch.tensor([[[float(row['open']), float(row['high']), float(row['low']), float(row['close']), float(row.get('volume', 0))]]], dtype=torch.float32)
-            with torch.no_grad():
-                base_score = float(model(x).item())
-        else:
-            base_score = 0.0
-
-        # Apply Optuna Strict Filter
+        base_score = score_map.get(dt_str, 0.0)
         if base_score > THRESHOLD:
             action_signals.append({
-                "time": dt_str,
+                "time":  dt_str,
                 "score": round(base_score, 3),
                 "price": float(row["low"])
             })
@@ -693,10 +732,12 @@ def chat_endpoint(req: ChatRequest):
     Responds to user inquiries and explains specific chart contexts.
     """
     import os
-    import google.generativeai as genai
-    from dotenv import load_dotenv
-    
-    load_dotenv() # Load from .env if present
+    try:
+        import google.generativeai as genai
+        from dotenv import load_dotenv
+        load_dotenv() # Load from .env if present
+    except ImportError as e:
+        return {"reply": f"**<Green Dragon SYSTEM ALERT>**\n\nI detect the Gemini API Key, but my backend server needs a restart to load the newly installed AI modules.\n\n**Action Required:** Please go to the terminal running `uvicorn api:app`, press `Ctrl+C` to stop it, and run the command again. ({e})"}
     
     context = req.context
     messages = req.messages
@@ -736,7 +777,7 @@ def chat_endpoint(req: ChatRequest):
     if gemini_api_key:
         try:
             genai.configure(api_key=gemini_api_key)
-            model = genai.GenerativeModel('gemini-1.5-flash')
+            model = genai.GenerativeModel('gemini-2.5-flash')
             response = model.generate_content(prompt)
             return {"reply": response.text}
         except Exception as e:
