@@ -689,46 +689,82 @@ class ChatRequest(BaseModel):
 @app.post("/api/v1/chat")
 def chat_endpoint(req: ChatRequest):
     """
-    Mock AI Chatbot endpoint representing the Green Dragon LLM.
-    Responds to user inquiries and explains specific chart contexts (Liquidity Sweeps, SMC).
+    Real AI Chatbot endpoint powered by Gemini.
+    Responds to user inquiries and explains specific chart contexts.
     """
-    import asyncio
+    import os
+    import google.generativeai as genai
+    from dotenv import load_dotenv
+    
+    load_dotenv() # Load from .env if present
     
     context = req.context
     messages = req.messages
+    last_user_message = messages[-1].content if messages else ""
     
-    last_user_message = messages[-1].content.lower() if messages else ""
+    # 1. Setup Gemini Prompt
+    system_instruction = (
+        "You are <Green Dragon Quant AI>, an elite quantitative trading assistant. "
+        "Your role is to explain institutional footprints, Liquidity Sweeps, and SMC (Smart Money Concepts). "
+        "Be extremely professional, concise, and analytical. Use markdown for emphasis."
+    )
     
-    # Context-Aware Explanation
+    prompt = f"System Context: {system_instruction}\n\n"
+    
     if context:
-        ticker = context.ticker
-        date = context.date
-        price = context.price
-        score = context.score
-        smc = context.smc_context
-        
-        # Highly Realistic Mock LLM Generator
-        confidence_level = "High" if score > 0.75 else "Moderate"
-        
-        reply = (f"**<Green Dragon Quant AI>** Analysis for **{ticker}** Execution on **{date}**\n\n"
-                 f"**Execution Price:** `{price:,.0f} VND`\n"
-                 f"**LSTM Action Score:** `{score}` (Threshold: 0.635)\n"
+        confidence_level = "High" if context.score > 0.75 else "Moderate"
+        prompt += (
+            f"--- CURRENT CHART CONTEXT ---\n"
+            f"Ticker: {context.ticker}\n"
+            f"Date of Signal: {context.date}\n"
+            f"Price at Signal: {context.price} VND\n"
+            f"LSTM Action Score: {context.score} (Threshold: 0.635, Confidence: {confidence_level})\n"
+            f"SMC Context Detected: {context.smc_context}\n"
+            f"-----------------------------\n\n"
+        )
+    
+    prompt += "--- CONVERSATION HISTORY ---\n"
+    for msg in messages[:-1]:
+        prompt += f"{msg.role.upper()}: {msg.content}\n"
+    
+    prompt += f"USER: {last_user_message}\n"
+    prompt += "GREEN DRAGON AI:\n"
+    
+    gemini_api_key = os.environ.get("GEMINI_API_KEY")
+    
+    # 2. Try calling Gemini
+    if gemini_api_key:
+        try:
+            genai.configure(api_key=gemini_api_key)
+            model = genai.GenerativeModel('gemini-1.5-flash')
+            response = model.generate_content(prompt)
+            return {"reply": response.text}
+        except Exception as e:
+            _logger.error(f"Gemini API Error: {e}")
+            # Fall through to mock logic if Gemini fails
+    
+    # 3. Fallback Mock Logic (If API key missing or request fails)
+    if context:
+        confidence_level = "High" if context.score > 0.75 else "Moderate"
+        reply = (f"**<Green Dragon Quant AI>** Analysis for **{context.ticker}** Execution on **{context.date}**\n\n"
+                 f"*(Note: Running in offline simulation mode. GEMINI_API_KEY not provided.)*\n\n"
+                 f"**Execution Price:** `{context.price:,.0f} VND`\n"
+                 f"**LSTM Action Score:** `{context.score}` (Threshold: 0.635)\n"
                  f"**Confidence:** `{confidence_level}`\n\n"
                  f"**Strategic Reasoning:**\n"
                  f"The execution algorithm triggered a **BUY** at this specific juncture because the feature matrix detected a systemic market irregularity perfectly aligning with our tail-risk model.\n\n"
                  f"**Market Context Interception:**\n"
-                 f"> *\"{smc}\"*\n\n"
+                 f"> *\"{context.smc_context}\"*\n\n"
                  f"My deep learning architecture identifies this as institutional footprinting. By combining the profound Liquidity Sweep signature with the mathematically defined {confidence_level} structural anomaly, the Green Dragon system enters ahead of the retail herd to capture the incoming impulsive reversal.")
-        
         return {"reply": reply}
 
-    # Standard Q&A
-    if "liquidity" in last_user_message:
+    # Standard Q&A Fallback
+    if "liquidity" in last_user_message.lower():
         reply = "Liquidity points are price levels where retail traders place their stop-loss orders. Institutional algorithms intentionally hunt these levels ('Liquidity Sweeps') to accumulate large positions without causing massive price slippage. Our Green Dragon LSTM is specifically trained to detect these anomalies in OHLCV tick data."
-    elif "smc" in last_user_message or "smart money" in last_user_message:
+    elif "smc" in last_user_message.lower() or "smart money" in last_user_message.lower():
         reply = "Smart Money Concepts (SMC) track the footprints of large institutional players. Key markers include Break of Structure (BOS) defining trend continuation, Change of Character (CHoCH) preceding reversals, and Order Blocks (OB) where major accumulation occurs. I overlay these on the chart heuristically."
     else:
-        reply = "I am the Green Dragon Financial Copilot. Please click on a specific Green BUY Arrow on the chart to receive a detailed, context-aware explanation of why my LSTM model executed that trade, or ask me to explain SMC and Liquidity Sweeps."
+        reply = "I am the Green Dragon Financial Copilot. Please set `GEMINI_API_KEY` in the `.env` file to enable my full AI reasoning capabilities. Alternatively, click on a specific Green BUY Arrow on the chart to receive a fallback context-aware explanation."
 
     return {"reply": reply}
 
