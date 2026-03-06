@@ -103,8 +103,8 @@ export default function ChatbotPanel({ activeContext }: ChatbotPanelProps) {
     };
 
     return (
-        <div className="bg-gray-900 border border-gray-800 rounded-lg flex flex-col h-full min-h-[600px] shadow-lg">
-            <div className="px-4 py-3 border-b border-gray-800 flex justify-between items-center bg-gray-800/80 rounded-t-lg backdrop-blur shadow-sm z-10">
+        <div className="bg-gray-900 border border-gray-800 rounded-lg flex flex-col h-full shadow-lg overflow-hidden">
+            <div className="px-4 py-3 border-b border-gray-800 flex justify-between items-center bg-gray-800/80 backdrop-blur shadow-sm z-10 shrink-0">
                 <div className="flex items-center space-x-3">
                     <div className="bg-green-500/10 p-2 rounded-full border border-green-500/20">
                         <Bot className="w-5 h-5 text-green-400" />
@@ -167,7 +167,7 @@ export default function ChatbotPanel({ activeContext }: ChatbotPanelProps) {
                 <div ref={messagesEndRef} />
             </div>
 
-            <div className="p-4 border-t border-gray-800 bg-gray-900 rounded-b-lg">
+            <div className="p-4 border-t border-gray-800 bg-gray-900 shrink-0">
                 <div className="relative group">
                     <input
                         type="text"
