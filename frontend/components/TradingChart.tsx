@@ -237,56 +237,59 @@ export default function TradingChart({ onSignalClick }: TradingChartProps) {
 
     return (
         <div className="w-full h-[600px] bg-gray-900 border border-gray-800 rounded-lg overflow-hidden flex flex-col relative" style={{ userSelect: "none" }}>
-            <div className="px-4 py-3 border-b border-gray-800 flex justify-between items-center z-10 bg-gray-900">
-                <div className="flex items-center space-x-4">
-                    <h2 className="text-white font-semibold">Green Dragon Live Feed</h2>
-                    <select
-                        value={ticker}
-                        onChange={(e) => setTicker(e.target.value)}
-                        className="bg-gray-800 text-white text-sm px-3 py-1 rounded border border-gray-700 outline-none focus:border-green-500 cursor-pointer"
-                    >
-                        <option value="FPT">FPT</option>
-                        <option value="MBB">MBB</option>
-                        <option value="SSI">SSI</option>
-                        <option value="HPG">HPG</option>
-                        <option value="VNM">VNM</option>
-                        <option value="MWG">MWG</option>
-                    </select>
+            <div className="px-4 py-3 border-b border-gray-800 z-10 bg-gray-900 overflow-x-auto scrollbar-hide">
+                <div className="flex flex-row items-center justify-between w-full gap-4 p-2">
+                    <div className="flex items-center space-x-4 flex-shrink-0">
+                        <h2 className="text-white font-semibold whitespace-nowrap">Green Dragon Live Feed</h2>
+                        <select
+                            value={ticker}
+                            onChange={(e) => setTicker(e.target.value)}
+                            className="bg-gray-800 text-white text-sm px-3 py-1 rounded border border-gray-700 outline-none focus:border-green-500 cursor-pointer flex-shrink-0"
+                        >
+                            <option value="FPT">FPT</option>
+                            <option value="MBB">MBB</option>
+                            <option value="SSI">SSI</option>
+                            <option value="HPG">HPG</option>
+                            <option value="VNM">VNM</option>
+                            <option value="MWG">MWG</option>
+                        </select>
 
-                    {/* Timeframe Buttons */}
-                    <div className="flex space-x-1 border border-gray-700 rounded overflow-hidden">
-                        {[
-                            { label: '7D', val: 7 },
-                            { label: '1M', val: 30 },
-                            { label: '3M', val: 90 },
-                            { label: '1Y', val: 200 }
-                        ].map(tf => (
-                            <button
-                                key={tf.label}
-                                onClick={() => setDays(tf.val)}
-                                className={`px-3 py-1 text-xs font-semibold transition-colors ${days === tf.val ? 'bg-green-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}
-                            >
-                                {tf.label}
-                            </button>
-                        ))}
+                        {/* Timeframe Buttons */}
+                        <div className="flex space-x-1 border border-gray-700 rounded overflow-hidden flex-shrink-0">
+                            {[
+                                { label: '7D', val: 7 },
+                                { label: '1M', val: 30 },
+                                { label: '3M', val: 90 },
+                                { label: '1Y', val: 200 }
+                            ].map(tf => (
+                                <button
+                                    key={tf.label}
+                                    onClick={() => setDays(tf.val)}
+                                    className={`px-3 py-1 text-xs font-semibold transition-colors ${days === tf.val ? 'bg-green-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}
+                                >
+                                    {tf.label}
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* Dynamic Date Range Indicator */}
+                        {dateRange.start && dateRange.end && (
+                            <div className="flex items-center space-x-2 text-xs text-gray-400 bg-gray-800/50 px-3 py-1.5 rounded border border-gray-700 whitespace-nowrap flex-shrink-0">
+                                <span>Showing Period:</span>
+                                <span className="text-gray-200 font-medium">{dateRange.start}</span>
+                                <span>to</span>
+                                <span className="text-gray-200 font-medium">{dateRange.end}</span>
+                            </div>
+                        )}
+
+                        <span className="text-xs font-bold text-blue-400 bg-blue-900/30 px-2 py-1 rounded border border-blue-800 hidden xl:inline flex-shrink-0 whitespace-nowrap">Finite SMC</span>
+                        <span className="text-xs font-bold text-green-400 bg-green-900/30 px-2 py-1 rounded border border-green-800 hidden xl:inline flex-shrink-0 whitespace-nowrap">LSTM Act 0.635</span>
                     </div>
 
-                    {/* Dynamic Date Range Indicator */}
-                    {dateRange.start && dateRange.end && (
-                        <div className="hidden lg:flex items-center space-x-2 text-xs text-gray-400 bg-gray-800/50 px-3 py-1.5 rounded border border-gray-700">
-                            <span>Showing Period:</span>
-                            <span className="text-gray-200 font-medium">{dateRange.start}</span>
-                            <span>to</span>
-                            <span className="text-gray-200 font-medium">{dateRange.end}</span>
-                        </div>
-                    )}
-
-                    <span className="text-xs font-bold text-blue-400 bg-blue-900/30 px-2 py-1 rounded border border-blue-800 hidden xl:inline">Finite SMC</span>
-                    <span className="text-xs font-bold text-green-400 bg-green-900/30 px-2 py-1 rounded border border-green-800 hidden xl:inline">LSTM Act 0.635</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                    {loading && <span className="text-xs text-green-400 animate-pulse">Syncing Engine...</span>}
-                    <span className="text-xs text-gray-500">Real-time Optuna Evaluator Active</span>
+                    <div className="flex items-center space-x-2 flex-shrink-0">
+                        {loading && <span className="text-xs text-green-400 animate-pulse whitespace-nowrap">Syncing Engine...</span>}
+                        <span className="text-xs text-gray-500 whitespace-nowrap">Real-time Optuna Evaluator Active</span>
+                    </div>
                 </div>
             </div>
             <div ref={chartContainerRef} className="flex-1 w-full relative" />
