@@ -296,8 +296,8 @@ export default function TradingChart({ onSignalClick }: TradingChartProps) {
                     </div>
                 </div>
             </div>
-            <div className="flex-1 w-full h-full relative min-h-0">
-                <div ref={chartContainerRef} className="absolute inset-0" />
+            <div className="flex-1 w-full min-h-0 relative overflow-hidden bg-[#131722]">
+                <div ref={chartContainerRef} className="absolute top-0 left-0 right-0 bottom-0" />
 
                 {/* Hover Crosshair Legend Tooltip */}
                 {tooltipData && tooltipData.visible && (
