@@ -307,12 +307,9 @@ export default function TradingChart({ onSignalClick }: TradingChartProps) {
                             onChange={(e) => setTicker(e.target.value)}
                             className="bg-gray-800 text-white text-sm px-3 py-1 rounded border border-gray-700 outline-none focus:border-green-500 cursor-pointer flex-shrink-0"
                         >
-                            <option value="FPT">FPT</option>
-                            <option value="MBB">MBB</option>
-                            <option value="SSI">SSI</option>
-                            <option value="HPG">HPG</option>
-                            <option value="VNM">VNM</option>
-                            <option value="MWG">MWG</option>
+                            {["ACB", "BCM", "BID", "BVH", "CTG", "FPT", "GAS", "GVR", "HDB", "HPG", "MBB", "MSN", "MWG", "PLX", "POW", "SAB", "SHB", "SSB", "SSI", "STB", "TCB", "TPB", "VCB", "VHM", "VIB", "VIC", "VJC", "VNM", "VPB", "VRE"].map(t => (
+                                <option key={t} value={t}>{t}</option>
+                            ))}
                         </select>
 
                         {/* Timeframe Buttons */}
