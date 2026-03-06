@@ -210,10 +210,35 @@ export default function TradingChart({ onSignalClick }: TradingChartProps) {
             const hoveredSig = data.action_signals.find((s: any) => s.time === timeStr);
             if (hoveredSig) labels.push(`AI BUY (${hoveredSig.score.toFixed(2)})`);
 
+            // Smart Positioning Logic (Boundary Detection)
+            const chartWidth = chartContainerRef.current?.clientWidth || 800;
+            const chartHeight = chartContainerRef.current?.clientHeight || 500;
+
+            const TOOLTIP_WIDTH = 160;
+            const TOOLTIP_HEIGHT = 120;
+            const OFFSET = 15;
+
+            let finalX = param.point.x + OFFSET;
+            let finalY = param.point.y + OFFSET;
+
+            // Flip if hitting right edge
+            if (finalX + TOOLTIP_WIDTH > chartWidth) {
+                finalX = param.point.x - TOOLTIP_WIDTH - OFFSET;
+            }
+
+            // Flip if hitting bottom edge
+            if (finalY + TOOLTIP_HEIGHT > chartHeight) {
+                finalY = param.point.y - TOOLTIP_HEIGHT - OFFSET;
+            }
+
+            // Ensure tooltip doesn't go off the top/left edges
+            finalX = Math.max(0, finalX);
+            finalY = Math.max(0, finalY);
+
             setTooltip({
                 visible: true,
-                x: param.point.x,
-                y: param.point.y,
+                x: finalX,
+                y: finalY,
                 data: {
                     date: timeStr,
                     open: barData.open.toLocaleString(),
