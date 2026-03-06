@@ -17,16 +17,20 @@ export default function TradingChart({ onSignalClick }: TradingChartProps) {
     const [loading, setLoading] = useState(true);
     const [dateRange, setDateRange] = useState({ start: "", end: "" });
 
-    const [tooltipData, setTooltipData] = useState<{
+    const [tooltip, setTooltip] = useState<{
         visible: boolean;
-        date: string;
-        open: string;
-        high: string;
-        low: string;
-        close: string;
-        volume: string;
-        signal: string;
-    } | null>(null);
+        x: number;
+        y: number;
+        data: {
+            date: string;
+            open: string;
+            high: string;
+            low: string;
+            close: string;
+            volume: string;
+            signal: string;
+        } | null;
+    }>({ visible: false, x: 0, y: 0, data: null });
 
     useEffect(() => {
         if (!chartContainerRef.current) return;
@@ -172,7 +176,7 @@ export default function TradingChart({ onSignalClick }: TradingChartProps) {
 
         const handleCrosshairMove = (param: MouseEventParams) => {
             if (!param.point || !param.time || param.point.x < 0 || param.point.x > chartContainerRef.current!.clientWidth || param.point.y < 0 || param.point.y > chartContainerRef.current!.clientHeight) {
-                setTooltipData(null);
+                setTooltip({ visible: false, x: 0, y: 0, data: null });
                 return;
             }
 
@@ -183,7 +187,7 @@ export default function TradingChart({ onSignalClick }: TradingChartProps) {
             const barData: any = param.seriesData.get(seriesRef.current!);
 
             if (!barData) {
-                setTooltipData(null);
+                setTooltip({ visible: false, x: 0, y: 0, data: null });
                 return;
             }
 
@@ -206,15 +210,19 @@ export default function TradingChart({ onSignalClick }: TradingChartProps) {
             const hoveredSig = data.action_signals.find((s: any) => s.time === timeStr);
             if (hoveredSig) labels.push(`AI BUY (${hoveredSig.score.toFixed(2)})`);
 
-            setTooltipData({
+            setTooltip({
                 visible: true,
-                date: timeStr,
-                open: barData.open.toLocaleString(),
-                high: barData.high.toLocaleString(),
-                low: barData.low.toLocaleString(),
-                close: barData.close.toLocaleString(),
-                volume: data.ohlcv.find((c: any) => c.time === timeStr)?.volume?.toLocaleString() || "N/A",
-                signal: labels.length > 0 ? labels.join(" | ") : "None"
+                x: param.point.x,
+                y: param.point.y,
+                data: {
+                    date: timeStr,
+                    open: barData.open.toLocaleString(),
+                    high: barData.high.toLocaleString(),
+                    low: barData.low.toLocaleString(),
+                    close: barData.close.toLocaleString(),
+                    volume: data.ohlcv.find((c: any) => c.time === timeStr)?.volume?.toLocaleString() || "N/A",
+                    signal: labels.length > 0 ? labels.join(" | ") : "None"
+                }
             });
         };
 
@@ -300,19 +308,22 @@ export default function TradingChart({ onSignalClick }: TradingChartProps) {
                 <div ref={chartContainerRef} className="absolute top-0 left-0 right-0 bottom-0" />
 
                 {/* Hover Crosshair Legend Tooltip */}
-                {tooltipData && tooltipData.visible && (
-                    <div className="absolute top-4 left-4 z-50 flex flex-col gap-1.5 p-3 rounded-md bg-gray-900/85 backdrop-blur-sm border border-gray-700 pointer-events-none shadow-lg h-auto min-h-min">
-                        <div className="text-[11px] font-semibold text-gray-100 whitespace-nowrap">Date: {tooltipData.date}</div>
-                        <div className="flex flex-row flex-nowrap items-center gap-2 text-[11px] font-mono text-gray-300 whitespace-nowrap">
-                            <span><span className="text-gray-500">O:</span> {tooltipData.open}</span>
-                            <span><span className="text-gray-500">H:</span> {tooltipData.high}</span>
-                            <span><span className="text-gray-500">L:</span> {tooltipData.low}</span>
-                            <span><span className="text-gray-500">C:</span> {tooltipData.close}</span>
-                            <span><span className="text-gray-500">Vol:</span> {tooltipData.volume}</span>
+                {tooltip.visible && tooltip.data && (
+                    <div
+                        className="absolute z-50 flex flex-col gap-1 p-3 bg-gray-900/95 border border-gray-700 rounded-md shadow-2xl pointer-events-none text-xs"
+                        style={{ left: tooltip.x + 15, top: tooltip.y + 15 }}
+                    >
+                        <div className="font-bold text-gray-100 mb-1">{tooltip.data.date}</div>
+                        <div className="flex flex-col gap-0.5 text-gray-300 font-mono">
+                            <div><span className="text-gray-500 w-8 inline-block">O:</span> {tooltip.data.open}</div>
+                            <div><span className="text-gray-500 w-8 inline-block">H:</span> {tooltip.data.high}</div>
+                            <div><span className="text-gray-500 w-8 inline-block">L:</span> {tooltip.data.low}</div>
+                            <div><span className="text-gray-500 w-8 inline-block">C:</span> {tooltip.data.close}</div>
+                            <div><span className="text-gray-500 w-8 inline-block">Vol:</span> {tooltip.data.volume}</div>
                         </div>
-                        {tooltipData.signal !== "None" && (
-                            <div className={`text-sm font-bold mt-1 ${tooltipData.signal.includes('BUY') || tooltipData.signal.includes('BOS') ? 'text-green-400' : 'text-red-400'}`}>
-                                Signal: {tooltipData.signal}
+                        {tooltip.data.signal !== "None" && (
+                            <div className={`mt-1 font-bold ${tooltip.data.signal.includes('BUY') || tooltip.data.signal.includes('BOS') ? 'text-green-400' : 'text-red-400'}`}>
+                                {tooltip.data.signal}
                             </div>
                         )}
                     </div>
