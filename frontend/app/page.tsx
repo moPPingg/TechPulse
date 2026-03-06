@@ -10,21 +10,17 @@ export default function Home() {
   const [chatContext, setChatContext] = useState<any>(null);
 
   return (
-    <div className="h-screen bg-black text-white flex flex-col overflow-hidden">
-      <Navbar />
+    <div className="flex flex-col xl:flex-row h-screen w-screen overflow-hidden p-3 gap-3 bg-[#0B0E14] text-white">
+      {/* Left Column: Main Chart & News (70%) */}
+      <div className="flex flex-col w-full xl:w-[70%] h-full gap-3 overflow-hidden">
+        <TradingChart onSignalClick={setChatContext} />
+        <NewsFeed ticker="FPT" />
+      </div>
 
-      <main className="flex-1 p-4 flex flex-col lg:flex-row gap-4 overflow-hidden">
-        {/* Left Column: Main Chart (70%) */}
-        <div className="w-full lg:w-[70%] h-full flex flex-col gap-4 overflow-hidden">
-          <TradingChart onSignalClick={setChatContext} />
-          <NewsFeed ticker="FPT" />
-        </div>
-
-        {/* Right Column: Chatbot (30%) */}
-        <div className="w-full lg:w-[30%] h-full flex flex-col gap-4 overflow-hidden">
-          <ChatbotPanel activeContext={chatContext} />
-        </div>
-      </main>
+      {/* Right Column: Chatbot (30%) */}
+      <div className="w-full xl:w-[30%] h-full shrink-0 flex flex-col rounded-lg border border-gray-800 bg-gray-900/50 overflow-hidden">
+        <ChatbotPanel activeContext={chatContext} />
+      </div>
     </div>
   );
 }

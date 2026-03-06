@@ -26,7 +26,7 @@ export default function NewsFeed({ ticker = "FPT" }: { ticker?: string }) {
     ];
 
     return (
-        <div className="bg-gray-900 border border-gray-800 rounded-lg h-[300px] flex flex-col">
+        <div className="bg-gray-900/50 border border-gray-800 rounded-lg h-[28%] w-full shrink-0 flex flex-col">
             <div className="px-4 py-3 border-b border-gray-800 flex items-center space-x-2 bg-gray-800/50 rounded-t-lg">
                 <Newspaper className="w-5 h-5 text-blue-400" />
                 <h2 className="text-white font-semibold">Context-Aware News</h2>

@@ -235,7 +235,7 @@ export default function TradingChart({ onSignalClick }: TradingChartProps) {
     }, [ticker, days]);
 
     return (
-        <div className="flex flex-col w-full h-full relative bg-gray-900 border border-gray-800 rounded-lg overflow-x-hidden" style={{ userSelect: "none" }}>
+        <div className="flex-1 w-full min-h-0 relative rounded-lg border border-gray-800 overflow-hidden bg-gray-900 flex flex-col" style={{ userSelect: "none" }}>
             <div className="px-3 py-2 border-b border-gray-800 z-10 bg-gray-900 h-auto">
                 <div className="flex flex-row flex-nowrap items-center justify-between w-full h-auto gap-2 p-1">
                     <div className="flex flex-nowrap items-center gap-x-3 flex-shrink-0">
@@ -291,7 +291,7 @@ export default function TradingChart({ onSignalClick }: TradingChartProps) {
                     </div>
                 </div>
             </div>
-            <div className="flex-1 w-full h-full min-h-[500px] relative">
+            <div className="flex-1 w-full h-full relative min-h-0">
                 <div ref={chartContainerRef} className="absolute inset-0" />
 
                 {/* Hover Crosshair Legend Tooltip */}
