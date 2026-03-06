@@ -77,6 +77,22 @@ async def lifespan(app: FastAPI):
         interval_min = news_cfg.get("crawl_interval_minutes", 15)
         scheduler.add_job(_run_news_pipeline, "interval", minutes=interval_min, id="news_pipeline")
         scheduler.add_job(_run_data_pipeline, "interval", hours=4, id="data_pipeline")
+        
+        # 3. Daily Green Dragon Market Updater (15:05 GMT+7 Mon-Fri)
+        try:
+            from apscheduler.triggers.cron import CronTrigger
+            import pytz
+            from src.pipeline.market_data_updater import run_daily_market_update
+            vn_tz = pytz.timezone('Asia/Ho_Chi_Minh')
+            scheduler.add_job(
+                run_daily_market_update,
+                trigger=CronTrigger(day_of_week='mon-fri', hour=15, minute=5, timezone=vn_tz),
+                id="daily_green_dragon_update"
+            )
+            _logger.info("Green Dragon Daily Updater scheduled for 15:05 GMT+7 (Mon-Fri)")
+        except Exception as e:
+            _logger.error(f"Failed to schedule daily market update: {e}")
+            
         scheduler.start()
         _logger.info("Schedulers started: news every %s min (streaming), data every 4h", interval_min)
     except ImportError:
