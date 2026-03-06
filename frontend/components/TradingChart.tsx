@@ -120,6 +120,34 @@ export default function TradingChart({ onSignalClick }: TradingChartProps) {
                 });
                 candlestickSeries.setMarkers(markers);
 
+                // 4. T+1 Projected Target Lines (creates always - green=target, red=risk)
+                const lastBar = data.ohlcv[data.ohlcv.length - 1];
+                if (lastBar) {
+                    const lastClose = lastBar.close;
+                    const lastSignal = data.action_signals[data.action_signals.length - 1];
+                    const isBuySignal = !!lastSignal; // Trust model - if signals exist, last context is bullish
+
+                    // T+1 Upside Target: +3% from last close
+                    candlestickSeries.createPriceLine({
+                        price: lastClose * 1.03,
+                        color: '#10B981',
+                        lineWidth: 1,
+                        lineStyle: LineStyle.Dashed,
+                        axisLabelVisible: true,
+                        title: isBuySignal ? '🎯 T+1 Target (+3%)' : '⚠️ Resistance',
+                    });
+
+                    // T+1 Downside Risk: -2% from last close (stop-loss zone)
+                    candlestickSeries.createPriceLine({
+                        price: lastClose * 0.98,
+                        color: '#EF4444',
+                        lineWidth: 1,
+                        lineStyle: LineStyle.Dashed,
+                        axisLabelVisible: true,
+                        title: '🛡️ Stop-Loss (-2%)',
+                    });
+                }
+
                 // 3. Mark BOS / CHoCH (Finite Price Lines)
                 // Filter to only the 5 most recent to avoid extreme clutter
                 const recentBOS = data.smc.bos.slice(-5);
@@ -238,21 +266,21 @@ export default function TradingChart({ onSignalClick }: TradingChartProps) {
             const chartWidth = chartContainerRef.current?.clientWidth || 800;
             const chartHeight = chartContainerRef.current?.clientHeight || 500;
 
-            const TOOLTIP_WIDTH = 160;
-            const TOOLTIP_HEIGHT = 120;
+            const TOOLTIP_WIDTH = 180;
+            const TOOLTIP_HEIGHT = 160;
             const OFFSET = 15;
 
             let finalX = param.point.x + OFFSET;
-            let finalY = param.point.y + OFFSET;
+
+            // Always render tooltip ABOVE cursor when in bottom half of chart
+            const inBottomHalf = param.point.y > chartHeight * 0.5;
+            let finalY = inBottomHalf
+                ? param.point.y - TOOLTIP_HEIGHT - OFFSET
+                : param.point.y + OFFSET;
 
             // Flip if hitting right edge
             if (finalX + TOOLTIP_WIDTH > chartWidth) {
                 finalX = param.point.x - TOOLTIP_WIDTH - OFFSET;
-            }
-
-            // Flip if hitting bottom edge
-            if (finalY + TOOLTIP_HEIGHT > chartHeight) {
-                finalY = param.point.y - TOOLTIP_HEIGHT - OFFSET;
             }
 
             // Ensure tooltip doesn't go off the top/left edges
