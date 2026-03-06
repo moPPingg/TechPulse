@@ -120,32 +120,65 @@ export default function TradingChart({ onSignalClick }: TradingChartProps) {
                 });
                 candlestickSeries.setMarkers(markers);
 
-                // 4. T+1 Projected Target Lines (creates always - green=target, red=risk)
+                // 4. T+1 Forward Forecast Line Segments (clean future-only visuals)
                 const lastBar = data.ohlcv[data.ohlcv.length - 1];
                 if (lastBar) {
                     const lastClose = lastBar.close;
-                    const lastSignal = data.action_signals[data.action_signals.length - 1];
-                    const isBuySignal = !!lastSignal; // Trust model - if signals exist, last context is bullish
+                    const isBuySignal = data.action_signals.length > 0;
 
-                    // T+1 Upside Target: +3% from last close
-                    candlestickSeries.createPriceLine({
-                        price: lastClose * 1.03,
-                        color: '#10B981',
-                        lineWidth: 1,
-                        lineStyle: LineStyle.Dashed,
-                        axisLabelVisible: true,
-                        title: isBuySignal ? '🎯 T+1 Target (+3%)' : '⚠️ Resistance',
-                    });
+                    // Helper: advance by N business days (skip Sat/Sun)
+                    const addBizDays = (dateStr: string, n: number): string => {
+                        const d = new Date(dateStr);
+                        let added = 0;
+                        while (added < n) {
+                            d.setDate(d.getDate() + 1);
+                            if (d.getDay() !== 0 && d.getDay() !== 6) added++;
+                        }
+                        return d.toISOString().split('T')[0];
+                    };
 
-                    // T+1 Downside Risk: -2% from last close (stop-loss zone)
-                    candlestickSeries.createPriceLine({
-                        price: lastClose * 0.98,
-                        color: '#EF4444',
-                        lineWidth: 1,
+                    const t1 = addBizDays(lastBar.time, 1);
+                    const t3 = addBizDays(lastBar.time, 3);
+                    const t5 = addBizDays(lastBar.time, 5);
+
+                    const targetPrice = lastClose * 1.03;
+                    const stopPrice = lastClose * 0.98;
+
+                    // Green dashed line: Close → Target (+3%) over 5 sessions
+                    const targetSeries = chart.addLineSeries({
+                        color: '#00E676',
+                        lineWidth: 2,
                         lineStyle: LineStyle.Dashed,
-                        axisLabelVisible: true,
-                        title: '🛡️ Stop-Loss (-2%)',
+                        crosshairMarkerVisible: false,
+                        lastValueVisible: true,
+                        priceLineVisible: false,
+                        title: isBuySignal ? '🎯 T+1 Target' : '⚠️ Resistance',
+                        autoscaleInfoProvider: () => null,
                     });
+                    targetSeries.setData([
+                        { time: lastBar.time as any, value: lastClose },
+                        { time: t1 as any, value: (lastClose + targetPrice) / 2 },
+                        { time: t3 as any, value: targetPrice * 0.99 },
+                        { time: t5 as any, value: targetPrice },
+                    ]);
+
+                    // Red dashed line: Close → Stop-Loss (-2%) over 5 sessions
+                    const stopSeries = chart.addLineSeries({
+                        color: '#FF5252',
+                        lineWidth: 2,
+                        lineStyle: LineStyle.Dashed,
+                        crosshairMarkerVisible: false,
+                        lastValueVisible: true,
+                        priceLineVisible: false,
+                        title: '🛡️ Stop-Loss',
+                        autoscaleInfoProvider: () => null,
+                    });
+                    stopSeries.setData([
+                        { time: lastBar.time as any, value: lastClose },
+                        { time: t1 as any, value: (lastClose + stopPrice) / 2 },
+                        { time: t3 as any, value: stopPrice * 1.005 },
+                        { time: t5 as any, value: stopPrice },
+                    ]);
                 }
 
                 // 3. Mark BOS / CHoCH (Finite Price Lines)
