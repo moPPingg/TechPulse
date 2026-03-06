@@ -19,8 +19,6 @@ export default function TradingChart({ onSignalClick }: TradingChartProps) {
 
     const [tooltipData, setTooltipData] = useState<{
         visible: boolean;
-        x: number;
-        y: number;
         date: string;
         open: string;
         high: string;
@@ -205,8 +203,6 @@ export default function TradingChart({ onSignalClick }: TradingChartProps) {
 
             setTooltipData({
                 visible: true,
-                x: param.point.x,
-                y: param.point.y,
                 date: timeStr,
                 open: barData.open.toLocaleString(),
                 high: barData.high.toLocaleString(),
@@ -292,34 +288,28 @@ export default function TradingChart({ onSignalClick }: TradingChartProps) {
                     </div>
                 </div>
             </div>
-            <div ref={chartContainerRef} className="flex-1 w-full relative" />
+            <div className="flex-1 w-full relative">
+                <div ref={chartContainerRef} className="absolute inset-0" />
 
-            {/* Hover Crosshair Legend Tooltip */}
-            {tooltipData && tooltipData.visible && (
-                <div
-                    className="absolute z-20 pointer-events-none bg-gray-900/90 border border-gray-700 shadow-xl rounded p-3 text-xs text-white"
-                    style={{
-                        left: tooltipData.x > 250 ? tooltipData.x - 220 : tooltipData.x + 20,
-                        top: tooltipData.y > 150 ? tooltipData.y - 120 : tooltipData.y + 20,
-                        minWidth: '200px'
-                    }}
-                >
-                    <div className="font-bold text-blue-400 mb-2 border-b border-gray-700 pb-1">{tooltipData.date}</div>
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-                        <span className="text-gray-400">Open:</span> <span>{tooltipData.open}</span>
-                        <span className="text-gray-400">High:</span> <span>{tooltipData.high}</span>
-                        <span className="text-gray-400">Low:</span> <span>{tooltipData.low}</span>
-                        <span className="text-gray-400">Close:</span> <span>{tooltipData.close}</span>
-                        <span className="text-gray-400">Vol:</span> <span>{tooltipData.volume}</span>
-                    </div>
-                    {tooltipData.signal !== "None" && (
-                        <div className="mt-2 pt-2 border-t border-gray-700">
-                            <span className="text-green-400 font-bold">Signal: </span>
-                            {tooltipData.signal}
+                {/* Hover Crosshair Legend Tooltip */}
+                {tooltipData && tooltipData.visible && (
+                    <div className="absolute top-2 left-2 z-10 pointer-events-none flex flex-col gap-1 text-sm bg-transparent">
+                        <div className="text-gray-200">Date: {tooltipData.date}</div>
+                        <div className="flex flex-row gap-4 font-mono text-gray-300">
+                            <span>O: {tooltipData.open}</span>
+                            <span>H: {tooltipData.high}</span>
+                            <span>L: {tooltipData.low}</span>
+                            <span>C: {tooltipData.close}</span>
+                            <span>Vol: {tooltipData.volume}</span>
                         </div>
-                    )}
-                </div>
-            )}
+                        {tooltipData.signal !== "None" && (
+                            <div className={tooltipData.signal.includes('BUY') || tooltipData.signal.includes('BOS') ? 'text-green-400 font-semibold' : 'text-red-400 font-semibold'}>
+                                Signal: {tooltipData.signal}
+                            </div>
+                        )}
+                    </div>
+                )}
+            </div>
         </div>
     );
 }
