@@ -44,10 +44,33 @@ export default function TradingChart({ onSignalClick }: TradingChartProps) {
                 visible: true,
                 autoScale: true,
                 alignLabels: true,
+                scaleMargins: {
+                    top: 0.2,
+                    bottom: 0.2,
+                },
+            },
+            timeScale: {
+                rightOffset: 12,
+                barSpacing: 10,
+                timeVisible: true,
             },
             grid: {
                 vertLines: { color: "#1F2937" },
                 horzLines: { color: "#1F2937" },
+            },
+            handleScroll: {
+                mouseWheel: true,
+                pressedMouseMove: true,
+                horzTouchDrag: true,
+                vertTouchDrag: true,
+            },
+            handleScale: {
+                axisPressedMouseMove: {
+                    time: true,
+                    price: true,
+                },
+                mouseWheel: true,
+                pinch: true,
             },
             width: chartContainerRef.current.clientWidth,
             height: 600,
