@@ -120,7 +120,7 @@ export default function TradingChart({ onSignalClick }: TradingChartProps) {
                 });
                 candlestickSeries.setMarkers(markers);
 
-                // 4. T+1 Forward Forecast Line Segments (clean future-only visuals)
+                // 4. T+1 Forecast Zones — shaded boxes in future space (Order Block style)
                 const lastBar = data.ohlcv[data.ohlcv.length - 1];
                 if (lastBar) {
                     const lastClose = lastBar.close;
@@ -138,45 +138,52 @@ export default function TradingChart({ onSignalClick }: TradingChartProps) {
                     };
 
                     const t1 = addBizDays(lastBar.time, 1);
-                    const t3 = addBizDays(lastBar.time, 3);
                     const t5 = addBizDays(lastBar.time, 5);
 
                     const targetPrice = lastClose * 1.03;
                     const stopPrice = lastClose * 0.98;
 
-                    // Green dashed line: Close → Target (+3%) over 5 sessions
-                    const targetSeries = chart.addLineSeries({
-                        color: '#00E676',
-                        lineWidth: 2,
-                        lineStyle: LineStyle.Dashed,
+                    // GREEN zone: fills from lastClose UP to targetPrice (above baseline)
+                    const targetZone = chart.addBaselineSeries({
+                        baseValue: { type: 'price', price: lastClose },
+                        topFillColor1: 'rgba(0, 200, 100, 0.22)',
+                        topFillColor2: 'rgba(0, 200, 100, 0.06)',
+                        topLineColor: 'rgba(0, 200, 100, 0.9)',
+                        bottomFillColor1: 'rgba(0,0,0,0)',
+                        bottomFillColor2: 'rgba(0,0,0,0)',
+                        bottomLineColor: 'rgba(0,0,0,0)',
+                        lineWidth: 1,
                         crosshairMarkerVisible: false,
                         lastValueVisible: true,
                         priceLineVisible: false,
-                        title: isBuySignal ? '🎯 T+1 Target' : '⚠️ Resistance',
+                        title: isBuySignal ? 'Target Zone' : 'Resistance',
                         autoscaleInfoProvider: () => null,
                     });
-                    targetSeries.setData([
+                    targetZone.setData([
                         { time: lastBar.time as any, value: lastClose },
-                        { time: t1 as any, value: (lastClose + targetPrice) / 2 },
-                        { time: t3 as any, value: targetPrice * 0.99 },
+                        { time: t1 as any, value: targetPrice },
                         { time: t5 as any, value: targetPrice },
                     ]);
 
-                    // Red dashed line: Close → Stop-Loss (-2%) over 5 sessions
-                    const stopSeries = chart.addLineSeries({
-                        color: '#FF5252',
-                        lineWidth: 2,
-                        lineStyle: LineStyle.Dashed,
+                    // RED zone: fills from lastClose DOWN to stopPrice (below baseline)
+                    const stopZone = chart.addBaselineSeries({
+                        baseValue: { type: 'price', price: lastClose },
+                        topFillColor1: 'rgba(0,0,0,0)',
+                        topFillColor2: 'rgba(0,0,0,0)',
+                        topLineColor: 'rgba(0,0,0,0)',
+                        bottomFillColor1: 'rgba(255, 70, 70, 0.22)',
+                        bottomFillColor2: 'rgba(255, 70, 70, 0.06)',
+                        bottomLineColor: 'rgba(255, 70, 70, 0.9)',
+                        lineWidth: 1,
                         crosshairMarkerVisible: false,
                         lastValueVisible: true,
                         priceLineVisible: false,
-                        title: '🛡️ Stop-Loss',
+                        title: 'Risk Zone',
                         autoscaleInfoProvider: () => null,
                     });
-                    stopSeries.setData([
+                    stopZone.setData([
                         { time: lastBar.time as any, value: lastClose },
-                        { time: t1 as any, value: (lastClose + stopPrice) / 2 },
-                        { time: t3 as any, value: stopPrice * 1.005 },
+                        { time: t1 as any, value: stopPrice },
                         { time: t5 as any, value: stopPrice },
                     ]);
                 }
