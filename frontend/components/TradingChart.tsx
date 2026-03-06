@@ -232,11 +232,11 @@ export default function TradingChart({ onSignalClick }: TradingChartProps) {
     }, [ticker, days]);
 
     return (
-        <div className="w-full h-[600px] bg-gray-900 border border-gray-800 rounded-lg overflow-hidden flex flex-col relative" style={{ userSelect: "none" }}>
-            <div className="px-4 py-3 border-b border-gray-800 z-10 bg-gray-900 overflow-x-auto scrollbar-hide">
-                <div className="flex flex-row items-center justify-between w-full gap-4 p-2">
-                    <div className="flex items-center space-x-4 flex-shrink-0">
-                        <h2 className="text-white font-semibold whitespace-nowrap">Green Dragon Live Feed</h2>
+        <div className="w-full max-w-full h-[600px] bg-gray-900 border border-gray-800 rounded-lg overflow-x-hidden flex flex-col relative" style={{ userSelect: "none" }}>
+            <div className="px-4 py-3 border-b border-gray-800 z-10 bg-gray-900">
+                <div className="flex flex-row flex-wrap items-center justify-start w-full max-w-full gap-4 p-2">
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 flex-shrink-0">
+                        <h2 className="text-white font-semibold">Green Dragon Live Feed</h2>
                         <select
                             value={ticker}
                             onChange={(e) => setTicker(e.target.value)}
@@ -270,7 +270,7 @@ export default function TradingChart({ onSignalClick }: TradingChartProps) {
 
                         {/* Dynamic Date Range Indicator */}
                         {dateRange.start && dateRange.end && (
-                            <div className="flex items-center space-x-2 text-xs text-gray-400 bg-gray-800/50 px-3 py-1.5 rounded border border-gray-700 whitespace-nowrap flex-shrink-0">
+                            <div className="flex items-center space-x-2 text-xs text-gray-400 bg-gray-800/50 px-3 py-1.5 rounded border border-gray-700 flex-shrink-0">
                                 <span>Showing Period:</span>
                                 <span className="text-gray-200 font-medium">{dateRange.start}</span>
                                 <span>to</span>
@@ -278,13 +278,13 @@ export default function TradingChart({ onSignalClick }: TradingChartProps) {
                             </div>
                         )}
 
-                        <span className="text-xs font-bold text-blue-400 bg-blue-900/30 px-2 py-1 rounded border border-blue-800 hidden xl:inline flex-shrink-0 whitespace-nowrap">Finite SMC</span>
-                        <span className="text-xs font-bold text-green-400 bg-green-900/30 px-2 py-1 rounded border border-green-800 hidden xl:inline flex-shrink-0 whitespace-nowrap">LSTM Act 0.635</span>
+                        <span className="text-xs font-bold text-blue-400 bg-blue-900/30 px-2 py-1 rounded border border-blue-800 hidden xl:inline flex-shrink-0">Finite SMC</span>
+                        <span className="text-xs font-bold text-green-400 bg-green-900/30 px-2 py-1 rounded border border-green-800 hidden xl:inline flex-shrink-0">LSTM Act 0.635</span>
                     </div>
 
-                    <div className="flex items-center space-x-2 flex-shrink-0">
-                        {loading && <span className="text-xs text-green-400 animate-pulse whitespace-nowrap">Syncing Engine...</span>}
-                        <span className="text-xs text-gray-500 whitespace-nowrap">Real-time Optuna Evaluator Active</span>
+                    <div className="flex flex-wrap items-center gap-2 flex-shrink-0 ml-auto">
+                        {loading && <span className="text-xs text-green-400 animate-pulse">Syncing Engine...</span>}
+                        <span className="text-xs text-gray-500">Real-time Optuna Evaluator Active</span>
                     </div>
                 </div>
             </div>
@@ -293,9 +293,9 @@ export default function TradingChart({ onSignalClick }: TradingChartProps) {
 
                 {/* Hover Crosshair Legend Tooltip */}
                 {tooltipData && tooltipData.visible && (
-                    <div className="absolute top-4 left-4 z-50 flex flex-col gap-1.5 p-3 rounded-md bg-gray-900/85 backdrop-blur-sm border border-gray-700 pointer-events-none shadow-lg whitespace-nowrap">
+                    <div className="absolute top-4 left-4 z-50 flex flex-col gap-1.5 p-3 rounded-md bg-gray-900/85 backdrop-blur-sm border border-gray-700 pointer-events-none shadow-lg max-w-[90%]">
                         <div className="text-sm font-semibold text-gray-100">Date: {tooltipData.date}</div>
-                        <div className="flex flex-row items-center gap-4 text-xs font-mono text-gray-300">
+                        <div className="flex flex-row flex-wrap items-center gap-x-4 gap-y-1 text-xs font-mono text-gray-300">
                             <span><span className="text-gray-500">O:</span> {tooltipData.open}</span>
                             <span><span className="text-gray-500">H:</span> {tooltipData.high}</span>
                             <span><span className="text-gray-500">L:</span> {tooltipData.low}</span>
