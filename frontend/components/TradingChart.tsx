@@ -293,17 +293,17 @@ export default function TradingChart({ onSignalClick }: TradingChartProps) {
 
                 {/* Hover Crosshair Legend Tooltip */}
                 {tooltipData && tooltipData.visible && (
-                    <div className="absolute top-2 left-2 z-10 pointer-events-none flex flex-col gap-1 text-sm bg-transparent">
-                        <div className="text-gray-200">Date: {tooltipData.date}</div>
-                        <div className="flex flex-row gap-4 font-mono text-gray-300">
-                            <span>O: {tooltipData.open}</span>
-                            <span>H: {tooltipData.high}</span>
-                            <span>L: {tooltipData.low}</span>
-                            <span>C: {tooltipData.close}</span>
-                            <span>Vol: {tooltipData.volume}</span>
+                    <div className="absolute top-4 left-4 z-50 flex flex-col gap-1.5 p-3 rounded-md bg-gray-900/85 backdrop-blur-sm border border-gray-700 pointer-events-none shadow-lg whitespace-nowrap">
+                        <div className="text-sm font-semibold text-gray-100">Date: {tooltipData.date}</div>
+                        <div className="flex flex-row items-center gap-4 text-xs font-mono text-gray-300">
+                            <span><span className="text-gray-500">O:</span> {tooltipData.open}</span>
+                            <span><span className="text-gray-500">H:</span> {tooltipData.high}</span>
+                            <span><span className="text-gray-500">L:</span> {tooltipData.low}</span>
+                            <span><span className="text-gray-500">C:</span> {tooltipData.close}</span>
+                            <span><span className="text-gray-500">Vol:</span> {tooltipData.volume}</span>
                         </div>
                         {tooltipData.signal !== "None" && (
-                            <div className={tooltipData.signal.includes('BUY') || tooltipData.signal.includes('BOS') ? 'text-green-400 font-semibold' : 'text-red-400 font-semibold'}>
+                            <div className={`text-sm font-bold mt-1 ${tooltipData.signal.includes('BUY') || tooltipData.signal.includes('BOS') ? 'text-green-400' : 'text-red-400'}`}>
                                 Signal: {tooltipData.signal}
                             </div>
                         )}
