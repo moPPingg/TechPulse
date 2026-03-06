@@ -76,10 +76,10 @@ def run_daily_market_update():
     # 1. Load LSTM model once for efficiency
     try:
         from src.models.lstm import LSTMModel
-        model = LSTMModel(input_size=5, hidden_size=64, num_layers=2)
+        model = LSTMModel(input_size=7, hidden_size=64, num_layers=2)
         model_path = Path("models/best_lstm_model.pt")
         if model_path.exists():
-            model.load_state_dict(torch.load(model_path, map_location=torch.device('cpu')))
+            model.load_state_dict(torch.load(model_path, map_location=torch.device('cpu'), weights_only=True))
         model.eval()
         _logger.info("✅ Loaded Green Dragon LSTM Model.")
     except Exception as e:

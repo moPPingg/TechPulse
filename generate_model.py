@@ -5,8 +5,8 @@ import os
 # Create the models directory if it doesn't exist
 os.makedirs("models", exist_ok=True)
 
-# The user's system expects input_size=5 (OHLCV), hidden_size=64, num_layers=2
-model = LSTMModel(input_size=5, hidden_size=64, num_layers=2)
+# 7 features: open, high, low, close, volume, ls_binary, ls_strength
+model = LSTMModel(input_size=7, hidden_size=64, num_layers=2)
 model.eval()
 
 # Save the PyTorch model state dict
