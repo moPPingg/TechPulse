@@ -45,8 +45,8 @@ export default function TradingChart({ onSignalClick }: TradingChartProps) {
                 autoScale: true,
                 alignLabels: true,
                 scaleMargins: {
-                    top: 0.2,
-                    bottom: 0.2,
+                    top: 0.3,
+                    bottom: 0.3,
                 },
             },
             timeScale: {
@@ -133,6 +133,7 @@ export default function TradingChart({ onSignalClick }: TradingChartProps) {
                         crosshairMarkerVisible: false,
                         lastValueVisible: false,
                         priceLineVisible: false,
+                        autoscaleInfoProvider: () => null,
                     });
                     lineSeries.setData([
                         { time: marker.date_start, value: marker.price },
