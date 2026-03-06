@@ -33,8 +33,13 @@ export default function TradingChart({ onSignalClick }: TradingChartProps) {
 
         const chart = createChart(chartContainerRef.current, {
             layout: {
-                background: { type: ColorType.Solid, color: "#111827" },
-                textColor: "#9CA3AF",
+                background: { type: ColorType.Solid, color: 'transparent' },
+                textColor: '#D9D9D9',
+            },
+            rightPriceScale: {
+                visible: true,
+                autoScale: true,
+                alignLabels: true,
             },
             grid: {
                 vertLines: { color: "#1F2937" },
