@@ -362,30 +362,24 @@ export default function TradingChart({ onSignalClick }: TradingChartProps) {
         setTimeframe(tf);
 
         const ohlcv = dataRef.current.ohlcv;
-        const lastPoint = ohlcv[ohlcv.length - 1];
+        const lastIndex = ohlcv.length - 1;
 
         if (tf === 'ALL') {
             chartRef.current.timeScale().fitContent();
             return;
         }
 
-        // Compute the target calendar date using exact Date math
-        const lastDate = new Date(lastPoint.time);
-        const targetDate = new Date(lastDate);
-        if (tf === '7D') targetDate.setDate(lastDate.getDate() - 7);
-        if (tf === '1M') targetDate.setMonth(lastDate.getMonth() - 1);
-        if (tf === '3M') targetDate.setMonth(lastDate.getMonth() - 3);
-        if (tf === '1Y') targetDate.setFullYear(lastDate.getFullYear() - 1);
+        // Approximate trading days per period (no date math needed)
+        let startIndex = 0;
+        if (tf === '7D') startIndex = Math.max(0, lastIndex - 5);
+        if (tf === '1M') startIndex = Math.max(0, lastIndex - 22);
+        if (tf === '3M') startIndex = Math.max(0, lastIndex - 65);
+        if (tf === '1Y') startIndex = Math.max(0, lastIndex - 252);
 
-        const targetMs = targetDate.getTime();
-
-        // Find the first actual trading day in the dataset >= targetDate
-        // (avoids passing weekend/holiday dates that don't exist in chart memory)
-        const closestPoint = ohlcv.find((d: any) => new Date(d.time).getTime() >= targetMs) || ohlcv[0];
-
+        // Use EXACT time values from the data array - zero format conversion risk
         chartRef.current.timeScale().setVisibleRange({
-            from: closestPoint.time as any,
-            to: lastPoint.time as any,
+            from: ohlcv[startIndex].time as any,
+            to: ohlcv[lastIndex].time as any,
         });
     };
 
