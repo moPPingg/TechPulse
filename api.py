@@ -591,7 +591,8 @@ def get_chart_data_v1(ticker: str, days: int = 300):
         raise HTTPException(status_code=404, detail="Historical data not found")
 
     df = pd.read_csv(csv_path)
-    df['date'] = pd.to_datetime(df['date'])
+    df['date'] = pd.to_datetime(df['date']).dt.normalize()
+    df = df.drop_duplicates(subset=['date'], keep='last')
     df = df.sort_values("date").tail(days).reset_index(drop=True)
     
     if df.empty:
@@ -626,8 +627,9 @@ def get_chart_data_v1(ticker: str, days: int = 300):
         smc_path = Path("data/processed/smc_features.csv")
         if smc_path.exists():
             smc_df = pd.read_csv(smc_path)
-            smc_df['date'] = pd.to_datetime(smc_df['date'])
+            smc_df['date'] = pd.to_datetime(smc_df['date']).dt.normalize()
             smc_t = smc_df[smc_df['symbol'] == ticker][['date', 'ls_binary', 'ls_strength']]
+            smc_t = smc_t.drop_duplicates(subset=['date'], keep='last')
             df = pd.merge(df, smc_t, on='date', how='left')
             df['ls_binary']   = df['ls_binary'].fillna(0)
             df['ls_strength'] = df['ls_strength'].fillna(0)

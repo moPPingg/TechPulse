@@ -118,8 +118,6 @@ export default function TradingChart({ onSignalClick }: TradingChartProps) {
                         size: 2
                     });
                 });
-                candlestickSeries.setMarkers(markers);
-
                 // 4. T+1 Forecast Zones — shaded boxes in future space (Order Block style)
                 const lastBar = data.ohlcv[data.ohlcv.length - 1];
                 if (lastBar) {
@@ -189,15 +187,17 @@ export default function TradingChart({ onSignalClick }: TradingChartProps) {
                 }
 
                 // 3. Mark BOS / CHoCH (Finite Price Lines)
-                // Filter to only the 5 most recent to avoid extreme clutter
-                const recentBOS = data.smc.bos.slice(-5);
-                const recentCHoCH = data.smc.choch.slice(-5);
+                // Render all historical BOS / CHoCH
+                const recentBOS = data.smc.bos;
+                const recentCHoCH = data.smc.choch;
 
                 const renderFiniteLine = (marker: any, isBOS: boolean) => {
+                    const tvColor = isBOS ? '#9ca3af' : '#facc15'; // Grey for BOS, Yellow for CHOCH
+
                     const lineSeries = chart.addLineSeries({
-                        color: marker.direction === 'bullish' ? '#3b82f6' : '#ef4444',
-                        lineWidth: 2,
-                        lineStyle: isBOS ? LineStyle.Dashed : LineStyle.Dotted,
+                        color: tvColor,
+                        lineWidth: 1,
+                        lineStyle: LineStyle.Solid,
                         crosshairMarkerVisible: false,
                         lastValueVisible: false,
                         priceLineVisible: false,
@@ -207,10 +207,34 @@ export default function TradingChart({ onSignalClick }: TradingChartProps) {
                         { time: marker.date_start, value: marker.price },
                         { time: marker.date_end, value: marker.price }
                     ]);
+
+                    // Calculate midpoint for centered text
+                    let midTime = marker.date_start;
+                    if (data.ohlcv) {
+                        const startIndex = data.ohlcv.findIndex((c: any) => c.time === marker.date_start);
+                        const endIndex = data.ohlcv.findIndex((c: any) => c.time === marker.date_end);
+                        if (startIndex !== -1 && endIndex !== -1 && endIndex >= startIndex) {
+                            const midIndex = Math.floor((startIndex + endIndex) / 2);
+                            midTime = data.ohlcv[midIndex].time;
+                        }
+                    }
+
+                    // Add persistent text marker to the main series
+                    markers.push({
+                        time: midTime,
+                        position: marker.direction === 'bullish' ? 'belowBar' : 'aboveBar',
+                        color: tvColor,
+                        shape: 'text' as any, // No dot, no arrow, just text
+                        text: isBOS ? 'BOS' : 'CHOCH',
+                    });
                 };
 
                 recentBOS.forEach((marker: any) => renderFiniteLine(marker, true));
                 recentCHoCH.forEach((marker: any) => renderFiniteLine(marker, false));
+
+                // Sort all markers chronologically and apply to candlestick series
+                markers.sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
+                candlestickSeries.setMarkers(markers);
 
                 // Automatically fit content
                 chart.timeScale().fitContent();

@@ -1,0 +1,5 @@
+Model,Decision Threshold,Accuracy (%),F1-Score,Total Return (%),Sharpe Ratio,Max Drawdown (%),Num Trades,Win Rate (%)
+LightGBM,0.635,54.1,0.0013,1.19,0.0337,-4.36,10,80.0
+LSTM,0.635,54.1,0.0013,21.13,0.2316,-2.15,10,80.0
+PatchTST,0.635,54.08,0.0087,-8.75,-0.0501,-19.87,102,50.0
+iTransformer,0.635,54.29,0.0633,28.82,0.1417,-76.31,670,53.37

@@ -1,0 +1,3 @@
+Approach,Threshold,Accuracy (%),F1-Score,Total Return (%),Sharpe Ratio,Max Drawdown (%),Num Trades,Win Rate (%)
+"Probability Calibration (Isotonic, thr=0.50)",0.5,54.94,0.1961,426.18,0.3006,-72.35,1206,54.2
+Optuna Sharpe Optimization (thr=0.635),0.635,54.1,0.0013,21.13,0.2316,-2.15,10,80.0
