@@ -673,24 +673,74 @@ def get_chart_data_v1(ticker: str, days: int = 300):
     THRESHOLD = 0.635  # Optuna-discovered Sharpe-optimal threshold
     ohlcv = []
 
+    holding = False
+    entry_price = 0.0
+    target_price = 0.0
+    stop_loss_price = 0.0
+    holding_days = 0
+
     for i, row in df.iterrows():
         dt_str = row["date"].strftime("%Y-%m-%d")
+        
+        c_open = float(row["open"])
+        c_high = float(row["high"])
+        c_low = float(row["low"])
+        c_close = float(row["close"])
+        c_volume = float(row.get("volume", 0))
+
         ohlcv.append({
             "time":   dt_str,
-            "open":   float(row["open"]),
-            "high":   float(row["high"]),
-            "low":    float(row["low"]),
-            "close":  float(row["close"]),
-            "volume": float(row.get("volume", 0))
+            "open":   c_open,
+            "high":   c_high,
+            "low":    c_low,
+            "close":  c_close,
+            "volume": c_volume
         })
 
-        base_score = score_map.get(dt_str, 0.0)
-        if base_score > THRESHOLD:
-            action_signals.append({
-                "time":  dt_str,
-                "score": round(base_score, 3),
-                "price": float(row["low"])
-            })
+        if holding:
+            holding_days += 1
+            if holding_days >= 2:
+                if c_high >= target_price:
+                    action_signals.append({
+                        "time": dt_str,
+                        "price": target_price,
+                        "type": "SELL",
+                        "reason": "TP"
+                    })
+                    holding = False
+                elif c_low <= stop_loss_price:
+                    action_signals.append({
+                        "time": dt_str,
+                        "price": stop_loss_price,
+                        "type": "SELL",
+                        "reason": "SL"
+                    })
+                    holding = False
+                elif holding_days >= 5:
+                    action_signals.append({
+                        "time": dt_str,
+                        "price": c_close,
+                        "type": "SELL",
+                        "reason": "TE"
+                    })
+                    holding = False
+        else:
+            base_score = score_map.get(dt_str, 0.0)
+            if base_score > THRESHOLD:
+                entry_price = c_close
+                target_price = entry_price * 1.03
+                stop_loss_price = entry_price * 0.98
+                
+                action_signals.append({
+                    "time": dt_str,
+                    "score": round(base_score, 3),
+                    "price": entry_price,
+                    "type": "BUY"
+                })
+                
+                holding = True
+                holding_days = 0
+                
 
     # Cast SMC markers to standard floats/ints as well to fix JSON serialization
     for m in smc_markers["bos"] + smc_markers["choch"]:

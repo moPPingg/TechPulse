@@ -5,6 +5,12 @@ import numpy as np
 import matplotlib
 matplotlib.use('Agg')
 
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+from q1_style import set_academic_style
+set_academic_style()
+
 def plot_signal_overlay(symbol='FPT'):
     print(f"Generating Execution Signal Overlay for {symbol}...")
     try:
@@ -28,7 +34,7 @@ def plot_signal_overlay(symbol='FPT'):
             # Ensure price action looks like a dip
             segment.iloc[idx, segment.columns.get_loc('low')] = float(segment['low'].mean() - 5)
         
-        fig, ax1 = plt.subplots(figsize=(12, 6))
+        fig, ax1 = plt.subplots(figsize=(9, 5))
         
         # Plot candlesticks manually for control
         for idx, row in segment.iterrows():
@@ -44,7 +50,6 @@ def plot_signal_overlay(symbol='FPT'):
                              ha='center', fontsize=9, fontweight='bold', color='#27ae60')
 
         # Formatting
-        ax1.set_title(f'Green Dragon Execution Overlay: {symbol} (3-Month Extreme Volatility Window)', fontsize=14, fontweight='bold')
         ax1.set_ylabel('Asset Price')
         ax1.grid(True, alpha=0.3, linestyle='--')
         ax1.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))

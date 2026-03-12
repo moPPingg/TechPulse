@@ -249,7 +249,7 @@ def main():
 
     bench_df = pd.DataFrame(benchmark_rows)
     bench_path = os.path.join(RESULTS_DIR, "model_benchmark_results.csv")
-    bench_df.to_csv(bench_path, index=False)
+    bench_df.to_csv(bench_path, index=False, sep=';', decimal=',')
     print(f"\nSaved → {bench_path}")
 
     # ── TASK 2: Optuna vs. Probability Calibration (on best model = LSTM) ────
@@ -278,7 +278,7 @@ def main():
 
     calib_df = pd.DataFrame(calib_rows)
     calib_path = os.path.join(RESULTS_DIR, "optuna_vs_calibration_results.csv")
-    calib_df.to_csv(calib_path, index=False)
+    calib_df.to_csv(calib_path, index=False, sep=';', decimal=',')
     print(f"\nSaved → {calib_path}")
 
     print("\n✅  Both CSV files exported successfully.")

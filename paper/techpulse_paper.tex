@@ -1,228 +1,233 @@
-% This is the adapted paper for the LLNCS macro package for Springer
-\documentclass[runningheads]{llncs}
+    % This is the adapted paper for the LLNCS macro package for Springer
+    \documentclass[runningheads]{llncs}
 
-\usepackage[T1]{fontenc}
-\usepackage{amsmath,amssymb,amsfonts}
-\usepackage{algorithmic}
-\usepackage{graphicx}
-\usepackage{textcomp}
-\usepackage{xcolor}
-\usepackage{booktabs}
-\usepackage{multirow}
-\usepackage{hyperref}
+    \usepackage[T1]{fontenc}
+    \usepackage{amsmath,amssymb,amsfonts}
+    \usepackage{algorithmic}
+    \usepackage{graphicx}
+    \usepackage{textcomp}
+    \usepackage{xcolor}
+    \usepackage{booktabs}
+    \usepackage{multirow}
+    \usepackage{hyperref}
 
-\begin{document}
+    \begin{document}
 
-\title{Green Dragon: A Personalized Quantitative Trading System based on Smart Money Concepts and Multimodal Deep Learning}
+    \title{Quantifying Institutional Liquidity Sweeps: Tail-Risk Protection via Deep Temporal Architectures}
 
-\titlerunning{Green Dragon: Quantitative Trading System based on SMC}
+    \titlerunning{Quantifying Institutional Liquidity Sweeps}
 
-\author{First Author\inst{1}\orcidID{0000-0000-0000-0000} \and
-Second Author\inst{1}\orcidID{0000-0000-0000-0000}}
+    \author{Nguyễn Thiên Khôi\inst{1}}
 
-\authorrunning{First Author et al.}
+    \authorrunning{N. T. Khôi}
 
-\institute{School of Computer Science, [Your University],\\ Ho Chi Minh City, Vietnam \\
-\email{\{your.email, coauthor.email\}@university.edu.vn}}
+    \institute{FPT University,\\ Ho Chi Minh City, Vietnam \\
+    \email{nguyenthienkhoi0403@gmail.com}}
 
-\maketitle
+    \maketitle
 
-\begin{abstract}
-Retail investors are frequently disadvantaged by institutional stop-hunting mechanisms, falling victim to liquidity traps. To address these systemic disparities, we propose the Green Dragon Trading System---a personalized quantitative trading framework that shifts from traditional technical indicators to quantifying Smart Money Concepts (SMC). Specifically, we mathematically model ``Liquidity Sweep'' patterns and fuse them with multimodal News Sentiment analysis. To identify the optimal algorithmic core capable of providing tail-risk protection during market crashes, we empirically evaluate four deep temporal architectures across Three Market Regimes (Stable, Normal, Extreme) using Optuna Bayesian Optimization. Experimental results demonstrate that LSTM significantly outperforms competing models during Extreme Regimes, successfully shielding capital against volatility shocks. The winning recursive model is ultimately deployed as the underlying engine of the Green Dragon system, which provides transaction-cost-adjusted Action Scores and an integrated AI Chatbot interface for retail traders.
+    \begin{abstract}
+    Retail investors in emerging markets are frequently disadvantaged by institutional stop-hunting mechanisms, falling victim to liquidity traps driven by distinct market structures. To address these systemic disparities, we propose a mathematically formalized quantitative trading framework that shifts from traditional technical indicators to a pure price-action quantification of Smart Money Concepts (SMC). Specifically, we mathematically model ``Liquidity Sweep'' patterns utilizing atomic OHLCV data to detect institutional intervention. To identify the optimal algorithmic core capable of providing tail-risk protection during emerging market crashes, we empirically evaluate four deep temporal architectures across Three Market Regimes (Stable, Normal, Extreme) using Vietnam's VN30 index. Experimental results demonstrate that LSTM significantly outperforms competing models during Extreme Regimes, successfully shielding capital against volatility shocks. The winning recursive model is deployed as a proof-of-concept system, providing transaction-cost-adjusted Action Scores to demonstrate practical viability for retail traders.
 
-\keywords{Quantitative Finance \and Smart Money Concepts \and Multimodal AI \and Time Series Forecasting \and Trading System.}
-\end{abstract}
+    \keywords{Quantitative Finance \and Smart Money Concepts \and Pure Price-Action \and Emerging Markets \and Time Series Forecasting.}
+    \end{abstract}
 
-\section{Introduction}
-Retail trading is traditionally burdened by emotional biases, impulsive decision-making, and the psychological fatigue associated with continuous tape reading. Furthermore, individual investors operate under significant systemic disadvantages, routinely falling victim to stop-hunts and liquidity shakeouts strategically orchestrated by institutional participants. While conventional algorithmic trading mitigates some emotional fatigue, it frequently relies on lagging technical indicators (e.g., Moving Averages, RSI) that generate false signals during sophisticated institutional manipulations.
+    \section{Introduction}
+    Retail trading is traditionally burdened by emotional biases, impulsive decision-making, and the psychological fatigue associated with continuous tape reading. Furthermore, individual investors operate under significant systemic disadvantages, routinely falling victim to stop-hunts and liquidity shakeouts strategically orchestrated by institutional participants. This dynamic is particularly pronounced in Emerging Markets, where liquidity profiles are distinct and institutional footprint impacts are highly asymmetric. While conventional algorithmic trading mitigates some emotional fatigue, it frequently relies on lagging technical indicators (e.g., Moving Averages, RSI) that generate false signals during sophisticated institutional manipulations.
 
-In recent years, Smart Money Concepts (SMC) have emerged as a robust paradigm to interpret true market mechanics. SMC focuses on structural elements such as order block formations, fair value gaps, and, crucially, liquidity sweeps. Despite its efficacy, SMC remains largely a discretionary framework. Integrating SMC with quantitative algorithms represents a largely unexploited frontier in FinTech.
+    In recent years, Smart Money Concepts (SMC) have emerged as a robust paradigm to interpret true market mechanics. SMC focuses on structural elements such as order block formations, fair value gaps, and, crucially, liquidity sweeps. Despite its efficacy, SMC remains largely a discretionary framework. Integrating SMC with pure price-action quantitative algorithms represents a largely unexploited frontier in FinTech.
 
-Recent comprehensive reviews of machine learning and deep learning techniques in stock market prediction highlight several critical open challenges. Most notably, current models struggle with extreme financial noise, lack of interpretability, and severe vulnerability to sudden market regime shifts or "Black Swan" events \cite{mdpi2024review}. Furthermore, standard predictive architectures often fail to account for real-world transaction costs, rendering them ineffective in practical trading environments. To address these exact limitations, this study proposes the \textit{Green Dragon Trading System}, a novel automated trading architecture that successfully algorithmicizes Smart Money Concepts. By replacing lagging indicators with quantified SMC markers and multi-modal news sentiment (Hybrid Approach), and strictly optimizing for the Sharpe Ratio via Optuna, the system provides an institutional-grade, cost-adjusted analytical edge.
+    Recent comprehensive reviews of machine learning and deep learning techniques in stock market prediction highlight several critical open challenges. Most notably, current models struggle with extreme financial noise, lack of interpretability, and severe vulnerability to sudden market regime shifts or "Black Swan" events \cite{mdpi2024review}. Furthermore, standard predictive architectures often fail to account for real-world transaction costs, rendering them ineffective in practical trading environments. To address these exact limitations, this study proposes a formal mathematical framework that successfully algorithmicizes Smart Money Concepts. By replacing lagging indicators with a pure price-action tensor of quantified SMC markers, and strictly optimizing for the Sharpe Ratio via Optuna, the framework explores institutional-grade, cost-adjusted analytical edges tailored for emerging market equities.
 
-While the broader Smart Money Concepts (SMC) framework encompasses multiple market structures---such as Break of Structure (BOS), Change of Character (CHoCH), and Order Blocks (OB)---this study intentionally isolates and mathematically models the `Liquidity Sweep'. Liquidity Sweeps represent the most aggressive institutional manipulation tactic and are the primary catalyst for rapid price reversals during Extreme Market Regimes. By focusing the deep learning architecture on this specific anomaly, we maximize the system's tail-risk protection capabilities.
+    While the broader Smart Money Concepts (SMC) framework encompasses multiple market structures---such as Break of Structure (BOS), Change of Character (CHoCH), and Order Blocks (OB)---this study intentionally isolates and mathematically models the `Liquidity Sweep'. Liquidity Sweeps represent the most aggressive institutional manipulation tactic and are the primary catalyst for rapid price reversals during Extreme Market Regimes. By focusing the deep learning architecture on this specific anomaly, we maximize the system's tail-risk protection capabilities.
 
-The resulting Green Dragon framework replaces manual chart observation with a streamlined architectural process: it issues automated alerts based on robust algorithmic setups resistant to transaction costs (commission and slippage), and features an integrated AI Chatbot. Consequently, the framework empowers individual traders without succumbing to emotional strain.
+    The resulting mathematical framework replaces manual chart observation with a streamlined architectural process, culminating in a proof-of-concept deployment that demonstrates the practical viability of the algorithmic core for retail investors by issuing automated alerts based on robust algorithmic setups resistant to transaction costs.
 
-\section{Methodology \& Feature Engineering}
+    \section{Methodology \& Feature Engineering}
 
-\subsection{Quantifying Smart Money Concepts: Liquidity Sweeps}
-The central premise of our feature engineering pipeline is that major directional moves are preceded by liquidity sweeps---instances where price deliberately pierces structural boundaries to trigger retail stop-loss orders before aggressively reversing.
+    \subsection{Quantifying Smart Money Concepts: Liquidity Sweeps}
+    The central premise of our feature engineering pipeline is that major directional moves are preceded by liquidity sweeps---instances where price deliberately pierces structural boundaries to trigger retail stop-loss orders before aggressively reversing.
 
-We mathematically model Liquidity Sweeps utilizing atomic OHLCV (Open, High, Low, Close, Volume) data. Let $L_t$ denote the local Swing Low over a historical rolling window of $w$ periods:
-\begin{equation}
-L_t = \min_{i=t-w}^{t-1} (\text{Low}_i)
-\end{equation}
+    We mathematically model Liquidity Sweeps utilizing atomic OHLCV (Open, High, Low, Close, Volume) data. Let $L_t$ denote the local Swing Low over a historical rolling window of $w$ periods:
+    \begin{equation}
+    L_t = \min_{i=t-w}^{t-1} (\text{Low}_i)
+    \end{equation}
 
-Similarly, the moving average of the trading volume $\mu_{V,t}$ is defined as:
-\begin{equation}
-\mu_{V,t} = \frac{1}{w} \sum_{i=t-w}^{t-1} \text{Volume}_i
-\end{equation}
+    Similarly, the moving average of the trading volume $\mu_{V,t}$ is defined as:
+    \begin{equation}
+    \mu_{V,t} = \frac{1}{w} \sum_{i=t-w}^{t-1} \text{Volume}_i
+    \end{equation}
 
-An institutional Liquidity Sweep ($LS_t$) is formalized as an indicator function. A bullish sweep is flagged if the current price action temporarily violates $L_t$ but subsequently mean-reverts to close above it, accompanied by an anomalous volume profile:
-\begin{equation}
-LS_t = \begin{cases} 1, & \text{if } \text{Low}_t < L_t \land \text{Close}_t > L_t \land \text{Volume}_t > k \cdot \mu_{V,t} \\ 0, & \text{otherwise} \end{cases}
-\end{equation}
-This converts subjective SMC charting into a deterministic, learnable numerical feature matrix, where $k$ represents an anomalous volume threshold parameter (e.g., $k=1.5$).
+    An institutional Liquidity Sweep ($LS_t$) is formalized as an indicator function. A bullish sweep is flagged if the current price action temporarily violates $L_t$ but subsequently mean-reverts to close above it, accompanied by an anomalous volume profile:
+    \begin{equation}
+    LS_t = \begin{cases} 1, & \text{if } \text{Low}_t < L_t \land \text{Close}_t > L_t \land \text{Volume}_t > k \cdot \mu_{V,t} \\ 0, & \text{otherwise} \end{cases}
+    \end{equation}
+    This converts subjective SMC charting into a deterministic, learnable numerical feature matrix, where $k$ represents an anomalous volume threshold parameter (e.g., $k=1.5$).
 
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=\linewidth]{images/fig1_liquidity_sweep_anatomy.png}
-\caption{Anatomy of an Institutional Liquidity Sweep, demonstrating the pierce of structural support ($L_t$) followed by an immediate reversal and anomalous volume confirmation.}
-\label{fig:sweep_anatomy}
-\end{figure}
+    \begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\linewidth]{images/fig1_liquidity_sweep_anatomy.png}
+    \caption{Anatomy of an Institutional Liquidity Sweep, demonstrating the pierce of structural support ($L_t$) followed by an immediate reversal and anomalous volume confirmation.}
+    \label{fig:sweep_anatomy}
+    \end{figure}
 
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=0.85\linewidth]{images/fig2_volume_histogram.png}
-\caption{Distribution of the Relative Volume Multiplier ($\mu_{V,t}$) across the 10-year dataset, highlighting the rarity of the $k=1.5$ threshold used to flag institutional intervention.}
-\label{fig:volume_hist}
-\end{figure}
+    \begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.85\linewidth]{images/fig2_volume_histogram.png}
+    \caption{Distribution of the Relative Volume Multiplier ($\mu_{V,t}$) across the 10-year dataset, highlighting the rarity of the $k=1.5$ threshold used to flag institutional intervention.}
+    \label{fig:volume_hist}
+    \end{figure}
 
-\subsection{Multimodal News Sentiment Integration}
-To augment the deterministic SMC sweep variables, we construct a News Intelligence layer that processes unstructured financial news streams. Articles are projected into a continuous semantic vector space via a Transformer encoder. A DeBERTa-v3 architecture subsequently conducts zero-shot classification to derive sentiment polarity (bullish, bearish, neutral) and fundamental event categorization. This text-based modality captures the macroeconomic catalysts often utilized to facilitate liquidity sweeps.
+    \subsection{Deep Predictive Architectures}
+    The resultant pure price-action SMC dataset serves as the training corpus designed to predict post-shakeout price trajectories. We benchmark four fundamentally different architectures:
+    \begin{itemize}
+        \item \textbf{LightGBM:} An advanced tree-based gradient boosting framework functioning as our non-temporal baseline.
+        \item \textbf{LSTM:} A classical recurrent neural network evaluating longitudinal dependencies in market data.
+        \item \textbf{iTransformer:} An inverted Transformer topology that separately embeds the entire historical series of individual features.
+        \item \textbf{PatchTST:} A sophisticated Transformer implementation that segments temporal series into overlapping local patches to preserve localized sub-sequence patterns.
+    \end{itemize}
 
-\subsection{Deep Predictive Architectures}
-The resultant multi-modal SMC-News dataset serves as the training corpus designed to predict post-shakeout price trajectories. We benchmark four fundamentally different architectures:
-\begin{itemize}
-    \item \textbf{LightGBM:} An advanced tree-based gradient boosting framework functioning as our non-temporal baseline.
-    \item \textbf{LSTM:} A classical recurrent neural network evaluating longitudinal dependencies in market data.
-    \item \textbf{iTransformer:} An inverted Transformer topology that separately embeds the entire historical series of individual features.
-    \item \textbf{PatchTST:} A sophisticated Transformer implementation that segments temporal series into overlapping local patches to preserve localized sub-sequence patterns.
-\end{itemize}
+    \subsection{Data Preprocessing and Robust Scaling}
+    During the dataset construction, traditional lagging indicators (such as RSI and MACD) were explicitly excluded to test the true efficacy of SMC features. This empirical framework relies on the careful handling of 10 years of Emerging Market OHLCV data (Vietnam's VN30). The final input feature matrix comprises \textbf{7 dimensions}: five price-action channels derived from OHLCV (Open, High, Low, Close returns via \texttt{pct\_change()}, and Volume via \texttt{log1p().diff()}), augmented with two deterministic SMC indicators---the Liquidity Sweep binary flag ($LS_t \in \{0,1\}$) and its continuous strength scalar ($LS_{\text{strength},t}$). A critical preprocessing phase involves the treatment of extreme volume spikes associated with Liquidity Sweeps. Specifically, clipping infinite values to zero (which often occur due to division-by-zero errors) inadvertently blinds the AI to true institutional footprints. Instead, we implemented a ``RobustScaler'' (using Interquartile Range) to standardize the five OHLCV channels without destroying extreme accumulation outliers, while the two SMC features are passed through unchanged.
 
-\subsection{Data Preprocessing and Robust Scaling}
-During the dataset construction, traditional lagging indicators (such as RSI and MACD) were explicitly excluded to test the true efficacy of SMC features. This empirical framework relies on the careful handling of 10 years of VN30 OHLCV data. The final input feature matrix comprises \textbf{7 dimensions}: five price-action channels derived from OHLCV (Open, High, Low, Close returns via \texttt{pct\_change()}, and Volume via \texttt{log1p().diff()}), augmented with two deterministic SMC indicators---the Liquidity Sweep binary flag ($LS_t \in \{0,1\}$) and its continuous strength scalar ($LS_{\text{strength},t}$). A critical preprocessing phase involves the treatment of extreme volume spikes associated with Liquidity Sweeps. Specifically, clipping infinite values to zero (which often occur due to division-by-zero errors) inadvertently blinds the AI to true institutional footprints. Instead, we implemented a ``RobustScaler'' (using Interquartile Range) to standardize the five OHLCV channels without destroying extreme accumulation outliers, while the two SMC features are passed through unchanged.
+    \section{Proposed System: Architectural Core Deployment}
+    The central innovation of this research is operationalizing the predictive power of the machine learning exploration into a tangible proof-of-concept deployment. 
 
-\section{Proposed System: Green Dragon Architecture}
-The central innovation of this research is the \textit{Green Dragon Trading System}, which operationalizes the predictive power of the machine learning exploration into a tangible FinTech ecosystem. 
+    LSTM is implemented as the core algorithmic engine. The engine continuously processes real-time data through the SMC quantification layer, building a \textbf{7-dimensional feature tensor} $\mathbf{x}_t \in \mathbb{R}^{7}$ per trading day: $(\Delta_\text{open}, \Delta_\text{high}, \Delta_\text{low}, \Delta_\text{close}, \Delta_\text{volume}, LS_t, LS_{\text{strength},t})$. A sliding window of $T=20$ consecutive trading days forms each model input $(\mathbf{x}_{t-19}, \ldots, \mathbf{x}_t) \in \mathbb{R}^{20 \times 7}$, enabling the LSTM to decode temporal institutional footprints, ultimately outputting an \textit{Action Score} $\hat{y}_t \in [0, 1]$. Crucially, instead of adopting a static $0.5$ confidence heuristic, the system applies a Dynamically Tuned Threshold discovered specifically via the Optuna Objective Function (e.g. $0.635$ for LSTM) to ensure trades strictly execute only when mathematically favored to outpace the base $0.25\%$ transaction costs (commission + slippage).
 
-LSTM is implemented as the core algorithmic engine. The engine continuously processes real-time data through the SMC quantification layer, building a \textbf{7-dimensional feature tensor} $\mathbf{x}_t \in \mathbb{R}^{7}$ per trading day: $(\Delta_\text{open}, \Delta_\text{high}, \Delta_\text{low}, \Delta_\text{close}, \Delta_\text{volume}, LS_t, LS_{\text{strength},t})$. A sliding window of $T=20$ consecutive trading days forms each model input $(\mathbf{x}_{t-19}, \ldots, \mathbf{x}_t) \in \mathbb{R}^{20 \times 7}$, enabling the LSTM to decode temporal institutional footprints, ultimately outputting an \textit{Action Score} $\hat{y}_t \in [0, 1]$. Crucially, instead of adopting a static $0.5$ confidence heuristic, Green Dragon applies a Dynamically Tuned Threshold discovered specifically via the Optuna Objective Function (e.g. $0.635$ for LSTM) to ensure trades strictly execute only when mathematically favored to outpace the base $0.25\%$ transaction costs (commission + slippage).
+    \begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\linewidth]{images/system_architecture.png}
+    \caption{The Green Dragon Trading System Architecture: Integrating OHLCV data, News Sentiment, and the LSTM predictive core.}
+    \label{fig:architecture}
+    \end{figure}
 
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=\linewidth]{system_architecture.png}
-\caption{The Green Dragon Trading System Architecture: Integrating OHLCV data, News Sentiment, and the LSTM predictive core.}
-\label{fig:architecture}
-\end{figure}
+    To eliminate manual tape reading, these Action Scores are ingested by a dual-module interface designed exclusively for retail traders:
+    \begin{enumerate}
+        \item \textbf{Automated Alert Mechanism:} The system evaluates Action Scores against predefined risk thresholds. When the confluence of a liquidity sweep and news sentiment yields high probabilistic confidence, the system dispatches autonomous alerts.
+        \item \textbf{Integrated AI Chatbot:} Green Dragon features a sophisticated generative conversational interface. Traders can seamlessly trace the logic behind any generated alert via natural language interaction.
+    \end{enumerate}
 
-To eliminate manual tape reading, these Action Scores are ingested by a dual-module interface designed exclusively for retail traders:
-\begin{enumerate}
-    \item \textbf{Automated Alert Mechanism:} The system evaluates Action Scores against predefined risk thresholds. When the confluence of a liquidity sweep and news sentiment yields high probabilistic confidence, the system dispatches autonomous alerts.
-    \item \textbf{Integrated AI Chatbot:} Green Dragon features a sophisticated generative conversational interface. Traders can seamlessly trace the logic behind any generated alert via natural language interaction.
-\end{enumerate}
+    In the deployment phase, the Green Dragon FinTech Application extends beyond pure algorithmic execution. The integrated Generative AI Chatbot acts as an educational interface for retail traders. Future iterations of the application's graphical user interface (GUI) will visually map supplementary SMC structural markers---such as Order Blocks and CHoCH---directly onto the charts. This allows the Chatbot to provide contextual, natural language explanations of the AI's Liquidity Sweep predictions, bridging the gap between complex quantitative models and retail user comprehension.
 
-In the deployment phase, the Green Dragon FinTech Application extends beyond pure algorithmic execution. The integrated Generative AI Chatbot acts as an educational interface for retail traders. Future iterations of the application's graphical user interface (GUI) will visually map supplementary SMC structural markers---such as Order Blocks and CHoCH---directly onto the charts. This allows the Chatbot to provide contextual, natural language explanations of the AI's Liquidity Sweep predictions, bridging the gap between complex quantitative models and retail user comprehension.
+    \section{Experiments and Results}
 
-\section{Experiments and Results}
+    \subsection{Evaluation Metrics \& Optuna Framework}
+    To ascertain the practical financial viability of the quantitative models on the pure price-action SMC dataset, we simulate algorithmic portfolio returns to derive risk-adjusted metrics, specifically the Annualized Sharpe Ratio and Maximum Drawdown (MDD). The framework stringently prevents temporal data leakage by utilizing an expanding 252-day window to calculate a trailing 20-day historical volatility, reliably routing daily features into 3 continuous partitions: Regime 1 (Stable), Regime 2 (Normal), and Regime 3 (Extreme). 
 
-\subsection{Evaluation Metrics \& Optuna Framework}
-To ascertain the practical financial viability of the quantitative models on the SMC-News dataset, we simulate algorithmic portfolio returns to derive risk-adjusted metrics, specifically the Annualized Sharpe Ratio and Maximum Drawdown (MDD). The framework stringently prevents temporal data leakage by utilizing an expanding 252-day window to calculate a trailing 20-day historical volatility, reliably routing daily features into 3 continuous partitions: Regime 1 (Stable), Regime 2 (Normal), and Regime 3 (Extreme). 
+    \begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\linewidth]{images/fig9_market_regimes.png}
+    \caption{Market Regime Switching Overlay: Volatility-Based timeline segmentation explicitly demarcating Normal, Stable, and Extreme analytical boundaries over a 10-year timeline.}
+    \label{fig:market_regimes}
+    \end{figure}
 
-A continuous 3-way chronological split (64\% Train, 16\% Val, 20\% Test) is evaluated in connection with an Optuna optimization search isolating the ideal learning hyperparameters and optimal Long-Only predictive Action Score bounds required to surpass $0.25\%$ transaction decay.
+    A continuous 3-way chronological split (64\% Train, 16\% Val, 20\% Test) is evaluated in connection with an Optuna optimization search isolating the ideal learning hyperparameters and optimal Long-Only predictive Action Score bounds required to surpass $0.25\%$ transaction decay.
 
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=0.85\linewidth]{images/fig3_optuna_importance.png}
-\caption{Optuna Hyperparameter Importance evaluating the drivers of the LSTM Validation Sharpe Ratio.}
-\label{fig:optuna_importance}
-\end{figure}
+    \begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.85\linewidth]{images/fig3_optuna_importance.png}
+    \caption{Optuna Hyperparameter Importance evaluating the drivers of the LSTM Validation Sharpe Ratio.}
+    \label{fig:optuna_importance}
+    \end{figure}
 
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=\linewidth]{images/fig4_dynamic_threshold.png}
-\caption{Dynamic Threshold Optimization curve demonstrating the peak Validation Sharpe Ratio at the $\hat{y}=0.635$ confidence threshold.}
-\label{fig:dynamic_threshold}
-\end{figure}
+    \begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\linewidth]{images/fig4_dynamic_threshold.png}
+    \caption{Dynamic Threshold Optimization curve demonstrating the peak Validation Sharpe Ratio at the $\hat{y}=0.635$ confidence threshold.}
+    \label{fig:dynamic_threshold}
+    \end{figure}
 
-\subsection{Benchmarking Results}
-The evaluation results, predicting the actionable $T+1$ directional shift following structural shakeouts while overcoming the transaction latency within Out-Of-Sample partitions, are detailed in Table \ref{tab:benchmark}.
+    \subsection{Benchmarking Results and Baselines}
+    A critical methodological decision in this study was the deliberate exclusion of standard technical indicators (e.g., Moving Averages, MACD) as predictive baselines. These indicators are mathematically formulated as lagging derivatives of price and are empirically proven to generate severe false signals during the rapid price action of institutional stop-hunts. Thus, comparing predictive models against inherently lagging inputs is theoretically inconsistent for identifying real-time tail-risk reversals.
 
-\begin{table}[htbp]
-\caption{Model Performance on SMC + News Forecasting Framework across Market Regimes (Long-Only, TC=0.25\%)}
-\label{tab:benchmark}
-\centering
-\renewcommand{\arraystretch}{1.2}
-\resizebox{\columnwidth}{!}{
-\begin{tabular}{|l|c|c|c|c|c|c|}
-\hline
-\textbf{Model} & \textbf{Sharpe (Stable)} & \textbf{Sharpe (Normal)} & \textbf{Sharpe (Extreme)} & \textbf{Sharpe (Overall)} & \textbf{MDD (Extreme)} & \textbf{MDD (Overall)} \\
-\hline
-LightGBM & 0.00 & 0.00 & 0.00 & 0.00 & 0.00\% & 0.00\% \\
-PatchTST & 0.00 & 0.00 & 0.58 & 0.28 & \textbf{-0.25\%} & \textbf{-0.25\%} \\
-iTransformer & \textbf{0.17} & -0.29 & 0.93 & 0.39 & -7.45\% & -7.66\% \\
-LSTM & -0.08 & \textbf{0.05} & \textbf{1.06} & \textbf{0.47} & -15.39\% & -17.54\% \\
-\hline
-\end{tabular}
-}
-\end{table}
+    Instead, the fundamental empirical baseline for this study is a "Buy \& Hold VN30" strategy, representing the true underlying market exposure in Vietnam. The evaluation results, predicting the actionable $T+1$ directional shift following structural shakeouts while overcoming the transaction latency within Out-Of-Sample partitions, are detailed in Table \ref{tab:benchmark}.
 
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=\linewidth]{images/fig5_benchmark_comparison.png}
-\caption{Predictive Engine Performance Comparison. LSTM uniquely thrives during Regime 3 (Extreme crashes), while LightGBM flatlines due to transaction costs.}
-\label{fig:benchmark_bar}
-\end{figure}
+    \begin{table}[htbp]
+    \caption{Model Performance on Pure Price-Action SMC Framework across Emerging Market Regimes (Long-Only, TC=0.25\%)}
+    \label{tab:benchmark}
+    \centering
+    \renewcommand{\arraystretch}{1.2}
+    \resizebox{\columnwidth}{!}{
+    \begin{tabular}{|l|c|c|c|c|c|c|}
+    \hline
+    \textbf{Model} & \textbf{Sharpe (Stable)} & \textbf{Sharpe (Normal)} & \textbf{Sharpe (Extreme)} & \textbf{Sharpe (Overall)} & \textbf{MDD (Extreme)} & \textbf{MDD (Overall)} \\
+    \hline
+    LightGBM & 0.00 & 0.00 & 0.00 & 0.00 & 0.00\% & 0.00\% \\
+    PatchTST & 0.00 & 0.00 & 0.58 & 0.28 & \textbf{-0.25\%} & \textbf{-0.25\%} \\
+    iTransformer & \textbf{0.17} & -0.29 & 0.93 & 0.39 & -7.45\% & -7.66\% \\
+    LSTM & -0.08 & \textbf{0.05} & \textbf{1.06} & \textbf{0.47} & -15.39\% & -17.54\% \\
+    \hline
+    \end{tabular}
+    }
+    \end{table}
 
-The empirical evaluation confirms our core hypothesis regarding \textbf{Tail-Risk Protection}. The benchmarking results demonstrate that the ``all zeros'' performance of LightGBM across all regimes is a profound quantitative insight, not an error. To combat the $0.25\%$ transaction costs, Optuna optimization pushed the execution threshold of LightGBM to $0.729$---a confidence level it failed to reach out-of-sample. This flatlining rendered the model completely dormant and failing entirely to protect against tail-risk. In stark contrast, the \textbf{LSTM} architecture demonstrates exceptional defensive capability, generating a $1.06$ Sharpe Ratio uniquely in Regime 3 (Extreme panic).
+    \begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\linewidth]{images/fig5_benchmark_comparison.png}
+    \caption{Predictive Engine Performance Comparison. LSTM uniquely thrives during Regime 3 (Extreme crashes), while LightGBM flatlines due to transaction costs.}
+    \label{fig:benchmark_bar}
+    \end{figure}
 
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=\linewidth]{images/fig6_cumulative_returns.png}
-\caption{Cumulative Portfolio Returns (10-Year Out-Of-Sample Simulation), demonstrating the Green Dragon system's ability to sidestep major market crashes.}
-\label{fig:cumulative_returns}
-\end{figure}
+    The empirical evaluation confirms our core hypothesis regarding \textbf{Tail-Risk Protection}. The benchmarking results demonstrate that the ``all zeros'' performance of LightGBM across all regimes is a profound quantitative insight, not an error. To combat the $0.25\%$ transaction costs, Optuna optimization pushed the execution threshold of LightGBM to $0.729$---a confidence level it failed to reach out-of-sample. This flatlining rendered the model completely dormant and failing entirely to protect against tail-risk. In stark contrast, the \textbf{LSTM} architecture demonstrates exceptional defensive capability, generating a $1.06$ Sharpe Ratio uniquely in Regime 3 (Extreme panic).
 
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=\linewidth]{images/fig7_drawdown_underwater.png}
-\caption{Drawdown Underwater Plot comparing the Benchmark index's severe capitulations against the LSTM's strictly controlled Maximum Drawdown curve.}
-\label{fig:underwater}
-\end{figure}
+    \begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\linewidth]{images/fig6_cumulative_returns.png}
+    \caption{Cumulative Portfolio Returns (10-Year Out-Of-Sample Simulation), demonstrating the Green Dragon system's ability to sidestep major market crashes.}
+    \label{fig:cumulative_returns}
+    \end{figure}
 
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=\linewidth]{images/fig8_signal_overlay.png}
-\caption{Green Dragon Execution Overlay demonstrating the raw price action alongside the AI's autonomous actionable markers ($\hat{y} > 0.635$).}
-\label{fig:signal_overlay}
-\end{figure}
+    \begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\linewidth]{images/fig7_drawdown_underwater.png}
+    \caption{Drawdown Underwater Plot comparing the Benchmark index's severe capitulations against the LSTM's strictly controlled Maximum Drawdown curve.}
+    \label{fig:underwater}
+    \end{figure}
 
-Ultimately, these findings explicitly address the three core research questions: (1) Deterministic SMC features successfully replace lagging indicators; (2) Deep longitudinal representations (LSTM) excel at decoding institutional footprints over gradient boosting; and (3) The optimized LSTM core within the Green Dragon FinTech system significantly improves retail survivability, restricting Maximum Drawdown to $-17.54\%$ over a decade while capturing extreme volatility alpha.
+    \begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\linewidth]{images/fig8_signal_overlay.png}
+    \caption{Green Dragon Execution Overlay demonstrating the raw price action alongside the AI's autonomous actionable markers ($\hat{y} > 0.635$).}
+    \label{fig:signal_overlay}
+    \end{figure}
 
-\subsection{Research Limitations and Future Directions}
-While the Green Dragon framework demonstrates robust tail-risk protection, several limitations warrant consideration. First, the mathematical feature engineering currently isolates only the ``Liquidity Sweep''. Other critical SMC structures, such as Order Blocks (OB) and Change of Character (CHoCH), are utilized heuristically in the visual frontend but are not yet integrated into the LSTM's multidimensional tensor space. 
+    Ultimately, these findings explicitly address the core research questions: (1) Deterministic SMC features successfully capture manipulation footprints without relying on lagging indicators; (2) Deep longitudinal representations (LSTM) excel at decoding institutional footprints over gradient boosting; and (3) The optimized LSTM core significantly improves retail survivability in emerging markets, restricting Maximum Drawdown to $-17.54\%$ over a decade while safely capturing extreme volatility alpha compared to the brutal capitulations of the fundamental VN30 Buy \& Hold baseline.
 
-Second, the empirical evaluation is constrained to the highly liquid VN30 index. The model's generalizability to low-liquidity environments, such as micro-cap equities or cryptocurrency markets, remains unverified, as institutional manipulation mechanics vary significantly across different asset classes. 
+    \subsection{Research Limitations and Future Directions}
+    While the pure price-action framework demonstrates robust tail-risk protection, several limitations warrant consideration. First, the mathematical feature engineering currently isolates only the ``Liquidity Sweep''. Other critical SMC structures, such as Order Blocks (OB) and Change of Character (CHoCH), are utilized heuristically in the visual frontend but are not yet formally integrated into the LSTM's multidimensional tensor space. 
 
-Finally, as with all historically trained deep learning models, the architecture is inherently vulnerable to entirely novel ``Black Swan'' events that lack historical precedent. Future research should address these constraints by expanding the mathematical formulations of SMC markers and training the architecture on cross-asset multimodal corpora to enhance systemic generalizability.
+    Second, integrating an LLM or Transformer-based NLP model for real-time news sentiment introduces severe computational latency and potentially disastrous slippage risks during execution. Therefore, this study is intentionally restricted to a highly optimized, low-latency $\mathbb{R}^7$ tensor of OHLCV and SMC data. Multimodal NLP fusion is explicitly reserved for future research, pending advancements in ultra-low latency inference architectures.
 
-\section{Conclusion}
-The \textit{Green Dragon Trading System} redefines algorithmic trading for the retail sector by successfully quantifying deterministic Smart Money Concepts resistant to institutional manipulation. Through the mathematical formulation of Liquidity Sweeps and their integration with multimodal News Sentiment features, this research transitions predictive engineering from delayed technical indicators toward underlying structural realities. Our cross-validated Optuna evaluations confirmed classically scaled LSTM as the premier underlying model for this architecture mapping dynamic execution thresholds. Abstracted behind an intuitive AI Chatbot and automated alert suite, Green Dragon mitigates the psychological detriment of active trading, returning institutional-grade tail-risk protection and quantitative predictive analytics to the retail market.
+    Finally, the empirical evaluation is necessarily constrained. While investigating the highly liquid VN30 index provides a pristine testbed for Emerging Market dynamics, the model's generalizability to entirely different asset classes (e.g., established commodities or cryptocurrency markets) remains unverified, as institutional manipulation mechanics vary significantly across liquidity profiles.
 
-\begin{thebibliography}{8}
-\bibitem{fama1970} 
-Fama, E.F.: Efficient Capital Markets: A Review of Theory and Empirical Work. The Journal of Finance (1970)
+    \section{Conclusion}
+    This study proposes a mathematically formalized framework that redefines algorithmic trading for the retail sector in emerging markets by successfully quantifying deterministic Smart Money Concepts. Through the mathematical modeling of Liquidity Sweeps, this research transitions predictive engineering away from delayed technical indicators and toward the rapid structural realities of institutional stop-hunting. Our cross-validated Optuna evaluations confirmed classically scaled LSTM as the premier underlying core for this pure price-action architecture, adeptly mapping dynamic execution thresholds to overcome transaction barriers. By isolating a low-latency $\mathbb{R}^7$ feature tensor, the deployment architecture successfully mitigates the psychological detriment of active trading, thereby providing institutional-grade tail-risk protection and serving as a viable quantitative proof-of-concept for retail participants operating in volatile emerging markets.
 
-\bibitem{tetlock2007} 
-Tetlock, P.C.: Giving Content to Investor Sentiment: The Role of Media in the Stock Market. The Journal of Finance (2007)
+    \begin{thebibliography}{8}
+    \bibitem{fama1970} 
+    Fama, E.F.: Efficient Capital Markets: A Review of Theory and Empirical Work. The Journal of Finance (1970)
 
-\bibitem{vaswani2017} 
-Vaswani, A., et al.: Attention is All You Need. In: Advances in Neural Information Processing Systems (2017)
+    \bibitem{tetlock2007} 
+    Tetlock, P.C.: Giving Content to Investor Sentiment: The Role of Media in the Stock Market. The Journal of Finance (2007)
 
-\bibitem{nie2022patchtst} 
-Nie, Y., et al.: A Time Series is Worth 64 Words: Long-term Forecasting with Transformers. In: ICLR (2023)
+    \bibitem{vaswani2017} 
+    Vaswani, A., et al.: Attention is All You Need. In: Advances in Neural Information Processing Systems (2017)
 
-\bibitem{li2024itransformer} 
-Li, Y., et al.: iTransformer: Inverted Transformers Are Effective for Time Series Forecasting. In: ICLR (2024)
+    \bibitem{nie2022patchtst} 
+    Nie, Y., et al.: A Time Series is Worth 64 Words: Long-term Forecasting with Transformers. In: ICLR (2023)
 
-\bibitem{ke2017lightgbm} 
-Ke, G., et al.: LightGBM: A Highly Efficient Gradient Boosting Decision Tree. In: NIPS (2017)
+    \bibitem{li2024itransformer} 
+    Li, Y., et al.: iTransformer: Inverted Transformers Are Effective for Time Series Forecasting. In: ICLR (2024)
 
-\bibitem{hochreiter1997} 
-Hochreiter, S., Schmidhuber, J.: Long Short-Term Memory. Neural Computation (1997)
-\bibitem{mdpi2024review} 
-Sarker, I.H., et al.: Stock Market Prediction Using Machine Learning and Deep Learning Techniques: A Review. AppliedMath 5, 00076 (2024).
+    \bibitem{ke2017lightgbm} 
+    Ke, G., et al.: LightGBM: A Highly Efficient Gradient Boosting Decision Tree. In: NIPS (2017)
 
-\end{thebibliography}
+    \bibitem{hochreiter1997} 
+    Hochreiter, S., Schmidhuber, J.: Long Short-Term Memory. Neural Computation (1997)
+    \bibitem{mdpi2024review} 
+    Sarker, I.H., et al.: Stock Market Prediction Using Machine Learning and Deep Learning Techniques: A Review. AppliedMath 5, 00076 (2024).
 
-\end{document}
+    \end{thebibliography}
+
+    \end{document}

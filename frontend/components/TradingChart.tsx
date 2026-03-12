@@ -45,8 +45,8 @@ export default function TradingChart({ onSignalClick }: TradingChartProps) {
                 autoScale: true,
                 alignLabels: true,
                 scaleMargins: {
-                    top: 0.3,
-                    bottom: 0.3,
+                    top: 0.1,
+                    bottom: 0.1,
                 },
             },
             timeScale: {
@@ -107,16 +107,27 @@ export default function TradingChart({ onSignalClick }: TradingChartProps) {
 
                 const markers: any[] = [];
 
-                // 2. Mark AI Execution Signals (Liquidity Sweeps)
+                // 2. Mark AI Execution Signals (Liquidity Sweeps / Take Profit / Stop Loss / Time Exit)
                 data.action_signals.forEach((signal: any) => {
-                    markers.push({
-                        time: signal.time,
-                        position: 'belowBar',
-                        color: '#10B981',
-                        shape: 'arrowUp',
-                        text: `AI BUY (${signal.score.toFixed(2)})`,
-                        size: 2
-                    });
+                    if (signal.type === 'BUY') {
+                        markers.push({
+                            time: signal.time,
+                            position: 'belowBar',
+                            color: '#10B981',
+                            shape: 'arrowUp',
+                            text: `(${signal.score.toFixed(2)})`,
+                            size: 1
+                        });
+                    } else if (signal.type === 'SELL') {
+                        markers.push({
+                            time: signal.time,
+                            position: 'aboveBar',
+                            color: '#EF4444',
+                            shape: 'arrowDown',
+                            text: `${signal.reason}`,
+                            size: 1
+                        });
+                    }
                 });
                 // 4. T+1 Forecast Zones — shaded boxes in future space (Order Block style)
                 const lastBar = data.ohlcv[data.ohlcv.length - 1];
@@ -197,7 +208,7 @@ export default function TradingChart({ onSignalClick }: TradingChartProps) {
                     const lineSeries = chart.addLineSeries({
                         color: tvColor,
                         lineWidth: 1,
-                        lineStyle: LineStyle.Solid,
+                        lineStyle: LineStyle.Dashed, // 2 is Dashed
                         crosshairMarkerVisible: false,
                         lastValueVisible: false,
                         priceLineVisible: false,
@@ -208,25 +219,17 @@ export default function TradingChart({ onSignalClick }: TradingChartProps) {
                         { time: marker.date_end, value: marker.price }
                     ]);
 
-                    // Calculate midpoint for centered text
-                    let midTime = marker.date_start;
-                    if (data.ohlcv) {
-                        const startIndex = data.ohlcv.findIndex((c: any) => c.time === marker.date_start);
-                        const endIndex = data.ohlcv.findIndex((c: any) => c.time === marker.date_end);
-                        if (startIndex !== -1 && endIndex !== -1 && endIndex >= startIndex) {
-                            const midIndex = Math.floor((startIndex + endIndex) / 2);
-                            midTime = data.ohlcv[midIndex].time;
-                        }
-                    }
-
-                    // Add persistent text marker to the main series
-                    markers.push({
-                        time: midTime,
+                    // Using date_end for right-aligned text (matching modern TV indicators)
+                    let textTime = marker.date_end;
+                    
+                    // Add text marker exactly on the line
+                    lineSeries.setMarkers([{
+                        time: textTime,
                         position: marker.direction === 'bullish' ? 'belowBar' : 'aboveBar',
                         color: tvColor,
-                        shape: 'text' as any, // No dot, no arrow, just text
+                        shape: 'text' as any,
                         text: isBOS ? 'BOS' : 'CHOCH',
-                    });
+                    }]);
                 };
 
                 recentBOS.forEach((marker: any) => renderFiniteLine(marker, true));
@@ -324,7 +327,13 @@ export default function TradingChart({ onSignalClick }: TradingChartProps) {
             }
 
             const hoveredSig = data.action_signals.find((s: any) => s.time === timeStr);
-            if (hoveredSig) labels.push(`AI BUY (${hoveredSig.score.toFixed(2)})`);
+            if (hoveredSig) {
+                if (hoveredSig.type === 'BUY') {
+                    labels.push(`AI BUY (${hoveredSig.score.toFixed(2)})`);
+                } else if (hoveredSig.type === 'SELL') {
+                    labels.push(`AI SELL (${hoveredSig.reason})`);
+                }
+            }
 
             // Smart Positioning Logic (Boundary Detection)
             const chartWidth = chartContainerRef.current?.clientWidth || 800;

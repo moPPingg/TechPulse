@@ -5,15 +5,20 @@ import seaborn as sns
 import matplotlib
 matplotlib.use('Agg')
 
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+from q1_style import set_academic_style
+set_academic_style()
+
 def plot_optuna_param_importance():
     print("Generating Optuna Hyperparameter Importance Chart...")
     # Mocking standard Optuna importance results for LSTM since we don't have the raw study.db
     params = ['learning_rate', 'hidden_size', 'num_layers', 'dropout', 'batch_size']
     importances = [0.45, 0.25, 0.15, 0.10, 0.05]
     
-    plt.figure(figsize=(10, 6))
+    plt.figure(figsize=(8, 5))
     sns.barplot(x=importances, y=params, palette='viridis')
-    plt.title('Optuna Hyperparameter Importance (LSTM Core)', fontsize=14, fontweight='bold')
     plt.xlabel('Relative Importance (to Validation Sharpe Ratio)')
     plt.ylabel('Hyperparameter')
     plt.xlim(0, 0.5)
@@ -42,14 +47,13 @@ def plot_dynamic_threshold_curve():
     np.random.seed(42)
     sharpes += np.random.normal(0, 0.02, 100)
     
-    plt.figure(figsize=(10, 6))
+    plt.figure(figsize=(8, 5))
     plt.plot(thresholds, sharpes, color='#2c3e50', linewidth=2, label='Validation Sharpe Ratio')
     plt.axvline(x=peak, color='#e74c3c', linestyle='--', linewidth=2, label=f'Optimal Threshold $\hat{{y}}={peak}$')
     plt.axhline(y=0, color='gray', linestyle=':', linewidth=1.5)
     
     plt.fill_between(thresholds, sharpes, 0, where=(sharpes > 0), color='#27ae60', alpha=0.2, label='Profitable Execution Space')
     
-    plt.title('Dynamic Threshold Optimization (LSTM)', fontsize=14, fontweight='bold')
     plt.xlabel('Action Score Threshold ($\hat{y}$)')
     plt.ylabel('Simulated Sharpe Ratio (TC=0.25%)')
     plt.legend()
@@ -72,14 +76,13 @@ def plot_benchmark_sharpe_comparison():
         x = np.arange(len(models))
         width = 0.25
         
-        fig, ax = plt.subplots(figsize=(12, 7))
+        fig, ax = plt.subplots(figsize=(9, 5))
         rects1 = ax.bar(x - width, stable, width, label='Regime 1 (Stable)', color='#3498db')
         rects2 = ax.bar(x, normal, width, label='Regime 2 (Normal)', color='#f39c12')
         rects3 = ax.bar(x + width, extreme, width, label='Regime 3 (Extreme Crashes)', color='#e74c3c', edgecolor='black', linewidth=1.5)
         
         ax.axhline(0, color='black', linewidth=1)
         ax.set_ylabel('Annualized Sharpe Ratio (Out-of-Sample)')
-        ax.set_title('Predictive Engine Performance Across Market Regimes (Long-Only, TC=0.25%)', fontsize=14, fontweight='bold')
         ax.set_xticks(x)
         ax.set_xticklabels(models, fontweight='bold')
         ax.legend()

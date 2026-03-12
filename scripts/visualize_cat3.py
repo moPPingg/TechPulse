@@ -4,6 +4,12 @@ import numpy as np
 import matplotlib
 matplotlib.use('Agg')
 
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+from q1_style import set_academic_style
+set_academic_style()
+
 def plot_cumulative_returns():
     print("Generating Cumulative Portfolio Returns Chart...")
     # Simulate realistic daily returns over a 10-year period (2520 trading days)
@@ -28,7 +34,7 @@ def plot_cumulative_returns():
     market_cum = np.cumprod(1 + market_daily)
     lstm_cum = np.cumprod(1 + lstm_daily)
     
-    plt.figure(figsize=(12, 6))
+    plt.figure(figsize=(9, 5))
     plt.plot(dates, lstm_cum, color='#27ae60', linewidth=2, label='Green Dragon (LSTM + SMC)')
     plt.plot(dates, market_cum, color='#7f8c8d', linewidth=1.5, alpha=0.8, label='Buy & Hold Benchmark (VN30)')
     
@@ -36,7 +42,6 @@ def plot_cumulative_returns():
     plt.axvspan(dates[1500], dates[1550], color='#e74c3c', alpha=0.2, label='Regime 3 (COVID Crash)')
     plt.axvspan(dates[2000], dates[2100], color='#e74c3c', alpha=0.2, label='Regime 3 (2022 Bear Market)')
     
-    plt.title('Cumulative Portfolio Returns: 10-Year Out-Of-Sample Simulation', fontsize=14, fontweight='bold')
     plt.ylabel('Cumulative Growth Factor')
     plt.xlabel('Date')
     plt.legend(loc='upper left')
@@ -71,13 +76,12 @@ def plot_underwater_drawdown():
     lstm_peak = np.maximum.accumulate(lstm_cum)
     lstm_dd = (lstm_cum - lstm_peak) / lstm_peak * 100
     
-    plt.figure(figsize=(12, 5))
+    plt.figure(figsize=(9, 4))
     plt.fill_between(dates, market_dd, 0, color='#e74c3c', alpha=0.4, label='Benchmark Drawdown')
     plt.fill_between(dates, lstm_dd, 0, color='#27ae60', alpha=0.7, label='Green Dragon Drawdown')
     
     plt.axhline(y=-17.54, color='#27ae60', linestyle='--', linewidth=2, label='LSTM Max Drawdown (-17.54%)')
     
-    plt.title('Portfolio Drawdown Analysis (Underwater Plot)', fontsize=14, fontweight='bold')
     plt.ylabel('Drawdown (%)')
     plt.xlabel('Date')
     plt.ylim(min(market_dd.min() - 5, -50), 0)

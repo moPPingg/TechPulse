@@ -3,9 +3,14 @@ import matplotlib.dates as mdates
 import pandas as pd
 import numpy as np
 
-# Use non-interactive backend for generating images
 import matplotlib
 matplotlib.use('Agg')
+
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+from q1_style import set_academic_style
+set_academic_style()
 
 def plot_liquidity_sweep_anatomy(symbol='FPT'):
     print(f"Generating Liquidity Sweep Anatomy Chart for {symbol}...")
@@ -27,8 +32,7 @@ def plot_liquidity_sweep_anatomy(symbol='FPT'):
         segment.iloc[20, segment.columns.get_loc('close')] = float(segment['low'].min() + 1.0)
         segment.iloc[20, segment.columns.get_loc('volume')] = float(segment['volume'].mean() * 3.5)
         
-        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8), gridspec_kw={'height_ratios': [3, 1]}, sharex=True)
-        fig.suptitle(f"Anatomy of an Institutional Liquidity Sweep ({symbol})", fontsize=16, fontweight='bold', y=0.95)
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(8, 6), gridspec_kw={'height_ratios': [3, 1]}, sharex=True)
         
         # Plot Candlesticks
         for idx, row in segment.iterrows():
@@ -76,7 +80,7 @@ def plot_volume_multiplier_histogram():
         np.random.seed(42)
         normal_vols = np.random.lognormal(mean=0, sigma=0.4, size=10000) 
         
-        plt.figure(figsize=(10, 6))
+        plt.figure(figsize=(8, 5))
         counts, bins, patches = plt.hist(normal_vols, bins=100, color='#3498db', edgecolor='black', alpha=0.7)
         
         # Highlight anomalies
@@ -85,7 +89,6 @@ def plot_volume_multiplier_histogram():
                 patch.set_facecolor('#e74c3c')
                 
         plt.axvline(x=1.5, color='red', linestyle='--', linewidth=2, label='Anomaly Threshold $k=1.5$')
-        plt.title('Distribution of Relative Volume Multiplier ($\mu_{V,t}$)', fontsize=14, fontweight='bold')
         plt.xlabel('Volume Multiplier (Current / 20-Day Moving Average)')
         plt.ylabel('Frequency (Log Scale)')
         plt.yscale('log')
