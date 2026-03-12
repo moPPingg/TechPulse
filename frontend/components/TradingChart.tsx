@@ -12,6 +12,9 @@ export default function TradingChart({ onSignalClick }: TradingChartProps) {
     const chartRef = useRef<IChartApi | null>(null);
     const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
     const dataRef = useRef<any>(null); // Store fetched data for click handling
+    const smcMarkersDataRef = useRef<any[]>([]);
+    const updateLabelPositionsRef = useRef<(() => void) | null>(null);
+    const [smcLabels, setSmcLabels] = useState<{ id: string, x: number, y: number, text: string, color: string, direction: string }[]>([]);
     const [ticker, setTicker] = useState("FPT");
     const [timeframe, setTimeframe] = useState('1Y');
     const [loading, setLoading] = useState(true);
@@ -129,80 +132,91 @@ export default function TradingChart({ onSignalClick }: TradingChartProps) {
                         });
                     }
                 });
-                // 4. T+1 Forecast Zones — shaded boxes in future space (Order Block style)
-                const lastBar = data.ohlcv[data.ohlcv.length - 1];
-                if (lastBar) {
-                    const lastClose = lastBar.close;
-                    const isBuySignal = data.action_signals.length > 0;
+                // 4. Localized Trade Risk/Reward Brackets
+                let currentBuySignal: any = null;
+                data.action_signals.forEach((signal: any) => {
+                    if (signal.type === 'BUY') {
+                        currentBuySignal = signal;
+                    } else if (signal.type === 'SELL' && currentBuySignal) {
+                        const targetPrice = currentBuySignal.price * 1.03;
+                        const stopPrice = currentBuySignal.price * 0.98;
+                        
+                        const targetSeries = chart.addLineSeries({
+                            color: 'rgba(16, 185, 129, 0.8)',
+                            lineWidth: 1,
+                            lineStyle: LineStyle.Dashed,
+                            crosshairMarkerVisible: false,
+                            lastValueVisible: false,
+                            priceLineVisible: false,
+                            autoscaleInfoProvider: () => null,
+                        });
+                        targetSeries.setData([
+                            { time: currentBuySignal.time, value: targetPrice },
+                            { time: signal.time, value: targetPrice }
+                        ]);
 
-                    // Helper: advance by N business days (skip Sat/Sun)
-                    const addBizDays = (dateStr: string, n: number): string => {
-                        const d = new Date(dateStr);
-                        let added = 0;
-                        while (added < n) {
-                            d.setDate(d.getDate() + 1);
-                            if (d.getDay() !== 0 && d.getDay() !== 6) added++;
-                        }
-                        return d.toISOString().split('T')[0];
-                    };
+                        const stopSeries = chart.addLineSeries({
+                            color: 'rgba(239, 68, 68, 0.8)',
+                            lineWidth: 1,
+                            lineStyle: LineStyle.Dashed,
+                            crosshairMarkerVisible: false,
+                            lastValueVisible: false,
+                            priceLineVisible: false,
+                            autoscaleInfoProvider: () => null,
+                        });
+                        stopSeries.setData([
+                            { time: currentBuySignal.time, value: stopPrice },
+                            { time: signal.time, value: stopPrice }
+                        ]);
 
-                    const t1 = addBizDays(lastBar.time, 1);
-                    const t5 = addBizDays(lastBar.time, 5);
+                        currentBuySignal = null;
+                    }
+                });
 
-                    const targetPrice = lastClose * 1.03;
-                    const stopPrice = lastClose * 0.98;
+                // Draw brackets for an active trade that hasn't closed yet
+                if (currentBuySignal) {
+                    const lastBar = data.ohlcv[data.ohlcv.length - 1];
+                    if (lastBar && lastBar.time >= currentBuySignal.time) {
+                        const targetPrice = currentBuySignal.price * 1.03;
+                        const stopPrice = currentBuySignal.price * 0.98;
 
-                    // GREEN zone: fills from lastClose UP to targetPrice (above baseline)
-                    const targetZone = chart.addBaselineSeries({
-                        baseValue: { type: 'price', price: lastClose },
-                        topFillColor1: 'rgba(0, 200, 100, 0.22)',
-                        topFillColor2: 'rgba(0, 200, 100, 0.06)',
-                        topLineColor: 'rgba(0, 200, 100, 0.9)',
-                        bottomFillColor1: 'rgba(0,0,0,0)',
-                        bottomFillColor2: 'rgba(0,0,0,0)',
-                        bottomLineColor: 'rgba(0,0,0,0)',
-                        lineWidth: 1,
-                        crosshairMarkerVisible: false,
-                        lastValueVisible: true,
-                        priceLineVisible: false,
-                        title: isBuySignal ? 'Target Zone' : 'Resistance',
-                        autoscaleInfoProvider: () => null,
-                    });
-                    targetZone.setData([
-                        { time: lastBar.time as any, value: lastClose },
-                        { time: t1 as any, value: targetPrice },
-                        { time: t5 as any, value: targetPrice },
-                    ]);
+                        const targetSeries = chart.addLineSeries({
+                            color: 'rgba(16, 185, 129, 0.8)',
+                            lineWidth: 1,
+                            lineStyle: LineStyle.Dashed,
+                            crosshairMarkerVisible: false,
+                            lastValueVisible: false,
+                            priceLineVisible: false,
+                            autoscaleInfoProvider: () => null,
+                        });
+                        targetSeries.setData([
+                            { time: currentBuySignal.time, value: targetPrice },
+                            { time: lastBar.time, value: targetPrice }
+                        ]);
 
-                    // RED zone: fills from lastClose DOWN to stopPrice (below baseline)
-                    const stopZone = chart.addBaselineSeries({
-                        baseValue: { type: 'price', price: lastClose },
-                        topFillColor1: 'rgba(0,0,0,0)',
-                        topFillColor2: 'rgba(0,0,0,0)',
-                        topLineColor: 'rgba(0,0,0,0)',
-                        bottomFillColor1: 'rgba(255, 70, 70, 0.22)',
-                        bottomFillColor2: 'rgba(255, 70, 70, 0.06)',
-                        bottomLineColor: 'rgba(255, 70, 70, 0.9)',
-                        lineWidth: 1,
-                        crosshairMarkerVisible: false,
-                        lastValueVisible: true,
-                        priceLineVisible: false,
-                        title: 'Risk Zone',
-                        autoscaleInfoProvider: () => null,
-                    });
-                    stopZone.setData([
-                        { time: lastBar.time as any, value: lastClose },
-                        { time: t1 as any, value: stopPrice },
-                        { time: t5 as any, value: stopPrice },
-                    ]);
+                        const stopSeries = chart.addLineSeries({
+                            color: 'rgba(239, 68, 68, 0.8)',
+                            lineWidth: 1,
+                            lineStyle: LineStyle.Dashed,
+                            crosshairMarkerVisible: false,
+                            lastValueVisible: false,
+                            priceLineVisible: false,
+                            autoscaleInfoProvider: () => null,
+                        });
+                        stopSeries.setData([
+                            { time: currentBuySignal.time, value: stopPrice },
+                            { time: lastBar.time, value: stopPrice }
+                        ]);
+                    }
                 }
 
                 // 3. Mark BOS / CHoCH (Finite Price Lines)
                 // Render all historical BOS / CHoCH
+                smcMarkersDataRef.current = [];
                 const recentBOS = data.smc.bos;
                 const recentCHoCH = data.smc.choch;
 
-                const renderFiniteLine = (marker: any, isBOS: boolean) => {
+                const renderFiniteLine = (marker: any, isBOS: boolean, index: number) => {
                     const tvColor = isBOS ? '#9ca3af' : '#facc15'; // Grey for BOS, Yellow for CHOCH
 
                     const lineSeries = chart.addLineSeries({
@@ -219,21 +233,45 @@ export default function TradingChart({ onSignalClick }: TradingChartProps) {
                         { time: marker.date_end, value: marker.price }
                     ]);
 
-                    // Using date_end for right-aligned text (matching modern TV indicators)
-                    let textTime = marker.date_end;
+                    // Anchor text to the origin swing point (date_start) to avoid massive breakout candle bodies
+                    let textTime = marker.date_start;
                     
-                    // Add text marker exactly on the line
-                    lineSeries.setMarkers([{
+                    smcMarkersDataRef.current.push({
                         time: textTime,
-                        position: marker.direction === 'bullish' ? 'belowBar' : 'aboveBar',
-                        color: tvColor,
-                        shape: 'text' as any,
+                        price: marker.price,
                         text: isBOS ? 'BOS' : 'CHOCH',
-                    }]);
+                        color: tvColor,
+                        direction: marker.direction, // "bullish" or "bearish"
+                        id: `smc-${isBOS ? 'bos' : 'choch'}-${index}-${marker.date_start}`
+                    });
                 };
 
-                recentBOS.forEach((marker: any) => renderFiniteLine(marker, true));
-                recentCHoCH.forEach((marker: any) => renderFiniteLine(marker, false));
+                recentBOS.forEach((marker: any, i: number) => renderFiniteLine(marker, true, i));
+                recentCHoCH.forEach((marker: any, i: number) => renderFiniteLine(marker, false, i));
+
+                // Add position updater for HTML overlays
+                const updateLabelPositions = () => {
+                    if (!chart || !candlestickSeries) return;
+                    
+                    const newLabels = smcMarkersDataRef.current.map(marker => {
+                        const x = chart.timeScale().timeToCoordinate(marker.time as any);
+                        const y = candlestickSeries.priceToCoordinate(marker.price);
+                        return {
+                            ...marker,
+                            x: x !== null ? x : -1000,
+                            y: y !== null ? y : -1000
+                        };
+                    }).filter(l => l.x !== -1000 && l.y !== -1000); // Filter out off-screen if necessary
+                    
+                    setSmcLabels(newLabels);
+                };
+
+                updateLabelPositionsRef.current = updateLabelPositions;
+                chart.timeScale().subscribeVisibleTimeRangeChange(updateLabelPositions);
+                chart.timeScale().subscribeVisibleLogicalRangeChange(updateLabelPositions);
+
+                // Initial positioning calculation
+                setTimeout(updateLabelPositions, 50);
 
                 // Sort all markers chronologically and apply to candlestick series
                 markers.sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
@@ -393,6 +431,10 @@ export default function TradingChart({ onSignalClick }: TradingChartProps) {
             window.removeEventListener("resize", handleResize);
             chart.unsubscribeClick(handleChartClick);
             chart.unsubscribeCrosshairMove(handleCrosshairMove);
+            if (updateLabelPositionsRef.current) {
+                chart.timeScale().unsubscribeVisibleTimeRangeChange(updateLabelPositionsRef.current);
+                chart.timeScale().unsubscribeVisibleLogicalRangeChange(updateLabelPositionsRef.current);
+            }
             chart.remove();
         };
     }, [ticker]);
@@ -480,6 +522,26 @@ export default function TradingChart({ onSignalClick }: TradingChartProps) {
             </div>
             <div className="flex-1 w-full min-h-0 relative overflow-hidden bg-[#131722]">
                 <div ref={chartContainerRef} className="absolute top-0 left-0 right-0 bottom-0" />
+
+                {/* HTML Overlays for SMC Labels */}
+                {smcLabels.map((label) => {
+                    const yOffset = label.direction === 'bullish' ? '-100%' : '0%'; // above line for bullish, below for bearish
+                    
+                    return (
+                        <div
+                            key={label.id}
+                            className="absolute z-40 text-[10px] font-bold pointer-events-none"
+                            style={{
+                                left: label.x,
+                                top: label.y,
+                                color: label.color,
+                                transform: `translate(0px, ${yOffset})`, // shift horizontally 0 so it aligns with the start, offset vertically
+                            }}
+                        >
+                            {label.text}
+                        </div>
+                    );
+                })}
 
                 {/* Hover Crosshair Legend Tooltip */}
                 {tooltip.visible && tooltip.data && (
