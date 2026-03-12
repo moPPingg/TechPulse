@@ -302,6 +302,8 @@ export default function TradingChart({ onSignalClick }: TradingChartProps) {
             let minDiff = Infinity;
 
             for (const sig of data.action_signals) {
+                if (sig.type !== 'BUY') continue; // Only process AI BUY execution clicks
+
                 const diff = Math.abs(new Date(sig.time).getTime() - new Date(clickedTime).getTime());
                 if (diff < minDiff) {
                     minDiff = diff;

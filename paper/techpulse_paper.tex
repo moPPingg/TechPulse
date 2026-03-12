@@ -93,10 +93,11 @@
     \section{Proposed System: Architectural Core Deployment}
     The central innovation of this research is operationalizing the predictive power of the machine learning exploration into a tangible proof-of-concept deployment. 
 
-    LSTM is implemented as the core algorithmic engine. The engine continuously processes real-time data through the SMC quantification layer, building a \textbf{7-dimensional feature tensor} $\mathbf{x}_t \in \mathbb{R}^{7}$ per trading day: $(\Delta_\text{open}, \Delta_\text{high}, \Delta_\text{low}, \Delta_\text{close}, \Delta_\text{volume}, LS_t, LS_{\text{strength},t})$. A sliding window of $T=20$ consecutive trading days forms each model input $(\mathbf{x}_{t-19}, \ldots, \mathbf{x}_t) \in \mathbb{R}^{20 \times 7}$, enabling the LSTM to decode temporal institutional footprints, ultimately outputting an \textit{Action Score} $\hat{y}_t \in [0, 1]$. Crucially, instead of adopting a static $0.5$ confidence heuristic, the system applies a Dynamically Tuned Threshold discovered specifically via the Optuna Objective Function (e.g. $0.635$ for LSTM) to ensure trades strictly execute only when mathematically favored to outpace the base $0.25\%$ transaction costs (commission + slippage).
+    LSTM is implemented as the core algorithmic engine. The engine continuously processes real-time data through the SMC quantification layer, building a \textbf{7-dimensional feature tensor} $\mathbf{x}_t \in \mathbb{R}^{7}$ per trading day: $(\Delta_\text{open}, \Delta_\text{high}, \Delta_\text{low}, \Delta_\text{close}, \Delta_\text{volume}, LS_t, LS_{\text{strength},t})$. A sliding window of $T=20$ consecutive trading days forms each model input $(\mathbf{x}_{t-19}, \ldots, \mathbf{x}_t) \in \mathbb{R}^{20 \times 7}$, enabling the LSTM to decode temporal institutional footprints, ultimately outputting an \textit{Action Score} $\hat{y}_t \in [0, 1]$. A profound limitation in modern financial machine learning is the reliance on Probability Calibration (e.g., Platt Scaling or Isotonic Regression) to establish a static 0.5 decision threshold. While statistically sound for symmetric log-loss optimization, calibration fundamentally fails in real-world trading due to asymmetric payoffs and transaction latency. It blindly forces 'Over-trading' on marginally probable setups, where razor-thin profits are entirely consumed by the 0.25\% transaction costs. To solve this, our system abandons traditional calibration. Instead, it utilizes a Bayesian Optimization framework (Optuna) to discover a Dynamically Tuned Threshold ($\hat{y} = 0.635$) that directly maximizes the simulated out-of-sample Sharpe Ratio, thereby enforcing strict capital preservation and actionable tail-risk protection.
 
     \begin{figure}[htbp]
     \centering
+    % TODO: Manually replace this image with a new version that has "News Sentiment" removed (to match the limitation stated in section 4.3).
     \includegraphics[width=\linewidth]{images/system_architecture.png}
     \caption{The Green Dragon Trading System Architecture: Integrating OHLCV data, News Sentiment, and the LSTM predictive core.}
     \label{fig:architecture}
@@ -109,6 +110,8 @@
     \end{enumerate}
 
     In the deployment phase, the Green Dragon FinTech Application extends beyond pure algorithmic execution. The integrated Generative AI Chatbot acts as an educational interface for retail traders. Future iterations of the application's graphical user interface (GUI) will visually map supplementary SMC structural markers---such as Order Blocks and CHoCH---directly onto the charts. This allows the Chatbot to provide contextual, natural language explanations of the AI's Liquidity Sweep predictions, bridging the gap between complex quantitative models and retail user comprehension.
+
+    Crucially, the system addresses the 'Black-Box' dilemma inherent in Deep Learning through Visual Explainability (XAI). Unlike traditional models that output arbitrary probabilities, this framework deterministically maps the LSTM's latent predictions directly back onto observable market structures. By rendering explicit structural markers (BOS, CHOCH) and localized Risk/Reward parameters (T+2.5 adjusted Stop-Loss and Take-Profit zones) directly on the graphical user interface, the system achieves true explainability. Retail traders are not forced to blindly trust the algorithm; rather, they can visually verify the confluence between the algorithmic Action Score and the underlying quantified Smart Money Concepts.
 
     \section{Experiments and Results}
 
@@ -171,6 +174,8 @@
 
     The empirical evaluation confirms our core hypothesis regarding \textbf{Tail-Risk Protection}. The benchmarking results demonstrate that the ``all zeros'' performance of LightGBM across all regimes is a profound quantitative insight, not an error. To combat the $0.25\%$ transaction costs, Optuna optimization pushed the execution threshold of LightGBM to $0.729$---a confidence level it failed to reach out-of-sample. This flatlining rendered the model completely dormant and failing entirely to protect against tail-risk. In stark contrast, the \textbf{LSTM} architecture demonstrates exceptional defensive capability, generating a $1.06$ Sharpe Ratio uniquely in Regime 3 (Extreme panic).
 
+    The empirical failure of State-of-the-Art Transformer architectures (iTransformer, PatchTST) in this study highlights a critical architectural constraint: Data Hunger and Over-attention. While Transformers dominate High-Frequency Trading (HFT) environments with tick-level data, the VN30 daily timeframe yields a constrained dataset (~2,500 samples per decade). In such low signal-to-noise environments, the Multi-Head Attention mechanisms suffer from 'over-attention', memorizing stochastic market noise rather than generalized patterns, leading to severe overfitting. Conversely, the LSTM's Recurrent Forget Gate provides an inherent Occam’s Razor regularization, gracefully filtering out daily volatility while retaining the longitudinal memory of macroeconomic order blocks.
+
     \begin{figure}[htbp]
     \centering
     \includegraphics[width=\linewidth]{images/fig6_cumulative_returns.png}
@@ -187,6 +192,7 @@
 
     \begin{figure}[htbp]
     \centering
+    % TODO: Update the image file path to the newly generated Next.js frontend screenshot which now includes both AI BUY and AI SELL (Take Profit / Stop Loss) markers aligned with T+2.5 rules.
     \includegraphics[width=\linewidth]{images/fig8_signal_overlay.png}
     \caption{Green Dragon Execution Overlay demonstrating the raw price action alongside the AI's autonomous actionable markers ($\hat{y} > 0.635$).}
     \label{fig:signal_overlay}
