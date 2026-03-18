@@ -72,6 +72,14 @@ Thumbs.db
 # Personal Study Hub
 learning_hub/
 
+# Markdown documentation files (only root README.md is tracked)
+**/*.md
+!README.md
+
+# Paper directory — only the LaTeX source is tracked
+paper/*
+!paper/techpulse_paper.tex
+
 # ----------------------------------------------------------------------
 # Node.js & Next.js Frontend Framework
 # ----------------------------------------------------------------------
