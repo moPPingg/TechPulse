@@ -76,9 +76,12 @@ learning_hub/
 **/*.md
 !README.md
 
-# Paper directory — only the LaTeX source is tracked
+# Paper directory — only source and generated assets are tracked
 paper/*
 !paper/techpulse_paper.tex
+!paper/gen_diagram.py
+!paper/images/
+!paper/images/*
 
 # ----------------------------------------------------------------------
 # Node.js & Next.js Frontend Framework
