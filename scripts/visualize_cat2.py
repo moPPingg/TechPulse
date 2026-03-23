@@ -27,7 +27,7 @@ def plot_optuna_param_importance():
     # Value labels – placed outside bar end, black text on white background
     for bar, val in zip(bars, importances[::-1]):
         ax.text(val + 0.012, bar.get_y() + bar.get_height() / 2,
-                f'{val:.0%}', va='center', fontsize=10,
+                f'{val:.0%}', va='center', fontsize=15,
                 fontweight='bold', color='#2c3e50',
                 bbox=dict(boxstyle='round,pad=0.25', facecolor='white',
                           edgecolor='none', alpha=0.0))
@@ -74,7 +74,7 @@ def plot_dynamic_threshold_curve():
     ax.annotate(f'Peak Sharpe = {max_sharpe:.2f}\nat $\\hat{{y}}={peak}$',
                 xy=(peak, max_sharpe),
                 xytext=(peak + 0.07, max_sharpe - 0.30),
-                fontsize=9.5, color='#c0392b', fontweight='bold',
+                fontsize=14, color='#c0392b', fontweight='bold',
                 bbox=ann_bbox('#c0392b'),
                 arrowprops=dict(arrowstyle='->', color='#c0392b', lw=1.3))
 
@@ -123,7 +123,7 @@ def plot_benchmark_sharpe_comparison():
             ax.text(rect.get_x() + rect.get_width() / 2, ypos,
                     f'{val:.2f}',
                     ha='center', va='bottom' if h >= 0 else 'top',
-                    fontsize=9, fontweight='bold' if i == 0 else 'normal',
+                    fontsize=14, fontweight='bold' if i == 0 else 'normal',
                     color='#2c3e50',
                     bbox=dict(boxstyle='round,pad=0.2', facecolor='white',
                               edgecolor='none', alpha=0.85))
@@ -132,7 +132,7 @@ def plot_benchmark_sharpe_comparison():
         lgbm_idx = models.index('LightGBM') if 'LightGBM' in models else None
         if lgbm_idx is not None:
             ax.text(lgbm_idx, 0.10, 'No trades\nexecuted',
-                    ha='center', va='bottom', fontsize=8.5,
+                    ha='center', va='bottom', fontsize=13,
                     color='#7f8c8d', fontstyle='italic',
                     bbox=dict(boxstyle='round,pad=0.3', facecolor='#ecf0f1',
                               edgecolor='#bdc3c7', alpha=0.9))

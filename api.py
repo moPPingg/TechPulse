@@ -375,6 +375,70 @@ def get_stock_signals(symbol: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/news/live")
+def get_live_news(symbol: str = "", limit: int = 15):
+    """
+    Scrape real-time headlines from VnExpress / CafeF / TinNhanhCK,
+    score with FinBERT, and fire an email alert if aggregate sentiment < -0.40.
+    Results are cached for 5 minutes to avoid hammering the sources.
+    """
+    import time as _time
+    cache = _live_news_cache
+
+    # Return cached result if fresh (< 5 min)
+    if cache["ts"] and (_time.time() - cache["ts"]) < 300 and cache["data"]:
+        items = cache["data"]
+    else:
+        # Import scraper helpers (same module as alert_system.py)
+        import sys, importlib
+        _ROOT_scripts = str(Path(__file__).parent / "scripts")
+        if _ROOT_scripts not in sys.path:
+            sys.path.insert(0, _ROOT_scripts)
+        alert_mod = importlib.import_module("alert_system")
+
+        raw = alert_mod.fetch_all_headlines()
+        scores, mean = alert_mod.score_headlines(raw)
+
+        items = []
+        for h, s in zip(raw, scores):
+            sentiment = "positive" if s > 0.15 else ("negative" if s < -0.15 else "neutral")
+            items.append({
+                "title":     h["title"],
+                "url":       h["url"],
+                "source":    h["source"],
+                "score":     round(s, 3),
+                "sentiment": sentiment,
+            })
+
+        cache["data"] = items
+        cache["ts"]   = _time.time()
+
+        # Fire email alert if market sentiment strongly negative
+        if mean < -0.40:
+            try:
+                negative = sorted([i for i in items if i["sentiment"] == "negative"],
+                                   key=lambda x: x["score"])[:5]
+                body = f"Aggregate FinBERT sentiment: {mean:.2f}\n\n"
+                body += "\n".join(f"[{n['source']}] {n['title']}" for n in negative)
+                alert_mod.send_email("[Green Dragon] CANH BAO: TIN TUC TIEU CUC MANH", body)
+            except Exception as exc:
+                _logger.warning("Alert email failed: %s", exc)
+
+    # Optional symbol filter — keep headlines mentioning the ticker
+    sym = symbol.strip().upper()
+    if sym and sym in VN30:
+        filtered = [i for i in items if sym in i["title"].upper()]
+        result = filtered if filtered else items  # fallback to all if no match
+    else:
+        result = items
+
+    return {"articles": result[:limit], "total": len(result)}
+
+
+# Cache dict for live news (module-level so it persists between requests)
+_live_news_cache: dict = {"ts": None, "data": []}
+
+
 @app.get("/api/stock/{symbol}/news")
 def get_stock_news(symbol: str, limit: int = 10, min_relevance: float = 0.0):
     """News articles with relevance scoring. For dashboard news section."""
@@ -679,8 +743,12 @@ def get_chart_data_v1(ticker: str, days: int = 300):
     stop_loss_price = 0.0
     holding_days = 0
 
+    df = df.dropna(subset=["date"])
+
     for i, row in df.iterrows():
-        dt_str = row["date"].strftime("%Y-%m-%d")
+        if pd.isna(row["date"]):
+            continue
+        dt_str = pd.Timestamp(row["date"]).strftime("%Y-%m-%d")
         
         c_open = float(row["open"])
         c_high = float(row["high"])
@@ -863,17 +931,29 @@ def chat_endpoint(req: ChatRequest):
 
 # --- Static frontend ---
 
-WEB_DIR = _ROOT / "web"
+WEB_DIR = _ROOT / "frontend" / "out"
+if not WEB_DIR.exists():
+    WEB_DIR = _ROOT / "web"   # fallback for old builds
+
 if WEB_DIR.exists():
-    app.mount("/static", StaticFiles(directory=WEB_DIR / "static"), name="static")
+    # Serve Next.js static assets at the correct /_next/static/ path
+    app.mount("/_next/static", StaticFiles(directory=WEB_DIR / "_next" / "static"), name="nextjs_static")
 
     @app.get("/")
     def index():
         return FileResponse(WEB_DIR / "index.html")
+
+    # Catch-all: serve any non-API path as index.html (SPA routing)
+    @app.get("/{full_path:path}")
+    def spa_fallback(full_path: str):
+        page = WEB_DIR / full_path
+        if page.exists() and page.is_file():
+            return FileResponse(page)
+        return FileResponse(WEB_DIR / "index.html")
 else:
     @app.get("/")
     def index():
-        return {"message": "Chưa có thư mục web/. Tạo web/index.html và web/static/ rồi chạy lại."}
+        return {"message": "Frontend chưa build. Chạy: cd frontend && npm run build"}
 
 
 if __name__ == "__main__":

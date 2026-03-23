@@ -64,7 +64,7 @@ def plot_cumulative_returns():
     y_top = max(market_cum.max(), lstm_cum.max())
     for mid, label in [(covid_mid, 'COVID\nCrash'), (bear_mid, '2022\nBear')]:
         ax.text(mid, y_top * 0.97, label,
-                ha='center', va='top', fontsize=8.5,
+                ha='center', va='top', fontsize=13,
                 color='#c0392b', fontstyle='italic', fontweight='bold',
                 bbox=dict(boxstyle='round,pad=0.3', facecolor='white',
                           edgecolor='#e74c3c', alpha=0.90, linewidth=0.8))
@@ -75,7 +75,7 @@ def plot_cumulative_returns():
         ax.annotate(f'Benchmark net loss\n({final_bm:.2f}x final value)',
                     xy=(dates[-1], final_bm),
                     xytext=(-110, 30), textcoords='offset points',
-                    fontsize=9.5, color='#2c3e50', fontweight='bold',
+                    fontsize=14, color='#2c3e50', fontweight='bold',
                     bbox=dict(boxstyle='round,pad=0.4', facecolor='#f8f9fa',
                               edgecolor='#2c3e50', alpha=0.95, linewidth=1.0),
                     arrowprops=dict(arrowstyle='->', color='#2c3e50', lw=1.4))
@@ -85,7 +85,7 @@ def plot_cumulative_returns():
     ax.annotate(f'{final_lstm:.1f}x',
                 xy=(dates[-1], final_lstm),
                 xytext=(8, 0), textcoords='offset points',
-                fontsize=10, fontweight='bold', color='#27ae60', va='center',
+                fontsize=15, fontweight='bold', color='#27ae60', va='center',
                 bbox=ann_bbox('#27ae60'))
 
     ax.set_ylabel('Cumulative Growth Factor\n(starting value = 1.0)')
@@ -142,7 +142,7 @@ def plot_underwater_drawdown():
     ax.annotate(f'LSTM trough\n{lstm_mdd_reported:.2f}%',
                 xy=(dates[lstm_mdd_i], lstm_mdd_reported),
                 xytext=(45, -35), textcoords='offset points',
-                fontsize=9, color='#1a7a40', fontweight='bold',
+                fontsize=14, color='#1a7a40', fontweight='bold',
                 bbox=ann_bbox('#1a7a40'),
                 arrowprops=dict(arrowstyle='->', color='#1a7a40', lw=1.4))
 
@@ -158,7 +158,7 @@ def plot_underwater_drawdown():
     ymin = market_dd.min() - 5
     for mid, label in [(covid_mid, 'COVID-19\nCrash'), (bear_mid, '2022\nBear Market')]:
         ax.text(mid, ymin * 0.88, label,
-                ha='center', va='top', fontsize=8.5,
+                ha='center', va='top', fontsize=13,
                 color='#c0392b', fontstyle='italic',
                 bbox=dict(boxstyle='round,pad=0.3', facecolor='white',
                           edgecolor='#e74c3c', alpha=0.90, linewidth=0.8))
@@ -176,7 +176,7 @@ def plot_underwater_drawdown():
     fig.text(0.5, -0.03,
              'Each point shows the % decline from the highest prior portfolio value '
              '(high-water mark).  A value of 0% means a new all-time high was just set.',
-             ha='center', fontsize=8.5, color='#555555', style='italic',
+             ha='center', fontsize=13, color='#555555', style='italic',
              wrap=True)
 
     plt.tight_layout()

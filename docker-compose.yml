@@ -1,0 +1,44 @@
+version: "3.9"
+
+services:
+
+  # ── Service 1: Daily data fetcher ──────────────────────────────────────────
+  # Fetches VN30 OHLCV from Yahoo Finance every weekday at 16:00 ICT.
+  # CSVs are written to ./data/raw/ on the host machine.
+  vn30-fetcher:
+    build: .
+    container_name: vn30_fetcher
+    restart: unless-stopped
+    command: python scripts/yfinance_fetcher.py
+    volumes:
+      - ./data/raw:/app/data/raw
+    environment:
+      - DATA_DIR=/app/data/raw
+      - LOG_LEVEL=INFO
+
+  # ── Service 2: Alert monitor ────────────────────────────────────────────────
+  # Runs every 5 min: checks price signals (Liquidity Sweep / Regime 3).
+  # Runs every 30 min: scrapes VnExpress / CafeF / TinNhanhCK,
+  #                    scores with FinBERT, sends Gmail digest + alerts.
+  #
+  # REQUIRED — fill in your Gmail credentials before running:
+  #   GMAIL_USER          your Gmail address
+  #   GMAIL_APP_PASSWORD  16-char App Password from myaccount.google.com
+  #   ALERT_TO_EMAIL      recipient address (can be same as GMAIL_USER)
+  alert-monitor:
+    build: .
+    container_name: green_dragon_alert
+    restart: unless-stopped
+    command: python scripts/alert_system.py
+    volumes:
+      - ./data/raw:/app/data/raw
+    environment:
+      - DATA_DIR=/app/data/raw
+      - LOG_LEVEL=INFO
+      - CHECK_INTERVAL_S=300     # price signal check every 5 min
+      - NEWS_INTERVAL_S=1800     # news digest every 30 min
+      - GMAIL_USER=${GMAIL_USER}
+      - GMAIL_APP_PASSWORD=${GMAIL_APP_PASSWORD}
+      - ALERT_TO_EMAIL=${ALERT_TO_EMAIL}
+    depends_on:
+      - vn30-fetcher

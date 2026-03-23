@@ -77,7 +77,7 @@ def plot_liquidity_sweep_anatomy(symbol='ACB'):
         ax1.annotate('[1] Pierce below $L_t$\n(stop-hunt)',
                      xy=(sweep_date, sweep_row['low']),
                      xytext=(-72, -52), textcoords='offset points',
-                     fontsize=9, color='#c0392b', fontweight='bold',
+                     fontsize=14, color='#c0392b', fontweight='bold',
                      bbox=ann_bbox('#c0392b'),
                      arrowprops=dict(arrowstyle='->', color='#c0392b', lw=1.4))
 
@@ -85,7 +85,7 @@ def plot_liquidity_sweep_anatomy(symbol='ACB'):
         ax1.annotate('[2] Close back above $L_t$\n(reversal confirmed)',
                      xy=(sweep_date, sweep_row['close']),
                      xytext=(22, 45), textcoords='offset points',
-                     fontsize=9, color='#27ae60', fontweight='bold',
+                     fontsize=14, color='#27ae60', fontweight='bold',
                      bbox=ann_bbox('#27ae60'),
                      arrowprops=dict(arrowstyle='->', color='#27ae60', lw=1.4))
 
@@ -95,14 +95,14 @@ def plot_liquidity_sweep_anatomy(symbol='ACB'):
                  'Liquidity Sweep\n($LS_t^{+} = 1$)',
                  transform=ax1.transAxes,
                  ha='right', va='top',
-                 fontsize=10, fontweight='bold', color='#c0392b',
+                 fontsize=15, fontweight='bold', color='#c0392b',
                  bbox=dict(boxstyle='round,pad=0.4', facecolor='#fff0ee',
                            edgecolor='#e74c3c', alpha=0.95, linewidth=1.2),
                  zorder=6)
 
         ax1.set_ylabel('Price')
         ax1.set_title('Panel A — Price Action: Bullish Liquidity Sweep Mechanics',
-                      fontsize=10, fontweight='bold', loc='left', pad=8)
+                      fontsize=15, fontweight='bold', loc='left', pad=8)
         ax1.legend(loc='upper left', frameon=True, facecolor='white',
                    framealpha=0.95, edgecolor='#cccccc')
 
@@ -118,13 +118,13 @@ def plot_liquidity_sweep_anatomy(symbol='ACB'):
         ax2.annotate('[3] Anomalous\nvolume spike',
                      xy=(sweep_date, sweep_row['volume']),
                      xytext=(25, 12), textcoords='offset points',
-                     fontsize=9, color='#c0392b', fontweight='bold',
+                     fontsize=14, color='#c0392b', fontweight='bold',
                      bbox=ann_bbox('#e74c3c'),
                      arrowprops=dict(arrowstyle='->', color='#e74c3c', lw=1.3))
 
         ax2.set_ylabel('Volume')
         ax2.set_title('Panel B — Volume Confirmation: Anomalous spike validates the sweep signal',
-                      fontsize=9, fontweight='bold', loc='left', pad=6, color='#555555')
+                      fontsize=14, fontweight='bold', loc='left', pad=6, color='#555555')
         ax2.legend(loc='upper left', frameon=True, facecolor='white',
                    framealpha=0.95, edgecolor='#cccccc')
 
@@ -182,7 +182,7 @@ def plot_volume_multiplier_histogram():
         ax.annotate('Institutional\nAbsorption Zone',
                     xy=(1.7, 30),
                     xytext=(2.4, 400),
-                    fontsize=10, fontweight='bold', color='#c0392b',
+                    fontsize=15, fontweight='bold', color='#c0392b',
                     bbox=ann_bbox('#c0392b'),
                     arrowprops=dict(arrowstyle='->', color='#c0392b', lw=1.4))
 

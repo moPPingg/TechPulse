@@ -73,7 +73,7 @@ def plot_signal_overlay(symbol='ACB'):
             ax1.annotate(f"Score: {row['action_score']:.2f}",
                          xy=(trigger_date, entry_price),
                          xytext=(0, 18), textcoords='offset points',
-                         ha='center', fontsize=9, fontweight='bold',
+                         ha='center', fontsize=14, fontweight='bold',
                          color='#1a7a40',
                          bbox=ann_bbox('#27ae60'))
 
@@ -108,11 +108,11 @@ def plot_signal_overlay(symbol='ACB'):
 
             # SL / TP labels at the RIGHT edge of their window
             ax1.text(trade_end_date, sl_price, '  SL', va='center',
-                     fontsize=9, color='#c0392b', fontweight='bold',
+                     fontsize=14, color='#c0392b', fontweight='bold',
                      bbox=dict(boxstyle='round,pad=0.28', facecolor='white',
                                edgecolor='#e74c3c', alpha=0.92, linewidth=0.8))
             ax1.text(trade_end_date, tp_price, '  TP', va='center',
-                     fontsize=9, color='#1a7a40', fontweight='bold',
+                     fontsize=14, color='#1a7a40', fontweight='bold',
                      bbox=dict(boxstyle='round,pad=0.28', facecolor='white',
                                edgecolor='#27ae60', alpha=0.92, linewidth=0.8))
 
@@ -135,7 +135,7 @@ def plot_signal_overlay(symbol='ACB'):
                             zorder=7, linewidths=2.5)
                 ax1.text(sl_hit_date, sl_price - price_range * 0.045,
                          'X  SL Hit', ha='center', va='top',
-                         fontsize=8.5, fontweight='bold', color='white',
+                         fontsize=13, fontweight='bold', color='white',
                          bbox=dict(boxstyle='round,pad=0.30', facecolor='#c0392b',
                                    edgecolor='#922b21', alpha=0.95, linewidth=0.8),
                          zorder=7)
@@ -148,7 +148,7 @@ def plot_signal_overlay(symbol='ACB'):
         ax1.annotate('BOS\n(Break of Structure)',
                      xy=(bos_date, bos_price),
                      xytext=(30, 38), textcoords='offset points',
-                     ha='center', fontsize=8.5, fontweight='bold',
+                     ha='center', fontsize=13, fontweight='bold',
                      color='#2980b9',
                      bbox=dict(boxstyle='round,pad=0.35', facecolor='#d6eaf8',
                                edgecolor='#2980b9', alpha=0.95),
@@ -162,7 +162,7 @@ def plot_signal_overlay(symbol='ACB'):
         ax1.annotate('CHoCH',
                      xy=(choch_date, choch_price),
                      xytext=(-32, -26), textcoords='offset points',
-                     ha='center', fontsize=8, fontweight='bold',
+                     ha='center', fontsize=13, fontweight='bold',
                      color='#8e44ad',
                      bbox=dict(boxstyle='round,pad=0.22', facecolor='#e8daef',
                                edgecolor='#8e44ad', alpha=0.92),
@@ -180,7 +180,7 @@ def plot_signal_overlay(symbol='ACB'):
 
         ax1.legend(handles=[buy_marker, tp_patch, sl_patch, sl_line],
                    loc='upper left', frameon=True, facecolor='white',
-                   framealpha=0.95, edgecolor='#cccccc', fontsize=9)
+                   framealpha=0.95, edgecolor='#cccccc', fontsize=14)
 
         ax1.set_ylabel('Asset Price')
         ax1.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))

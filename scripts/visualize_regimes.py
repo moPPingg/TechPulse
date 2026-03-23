@@ -66,7 +66,7 @@ def plot_market_regimes(symbol='ACB'):
             label = ['COVID-19\nCrash (~2020)', '2022\nBear Market'][i % 2]
             ax.text(mid_date, price_max * 0.91,
                     label,
-                    ha='center', va='top', fontsize=8.5,
+                    ha='center', va='top', fontsize=13,
                     color='#c0392b', fontstyle='italic', fontweight='bold',
                     bbox=dict(boxstyle='round,pad=0.35', facecolor='white',
                               edgecolor='#c0392b', alpha=0.92, linewidth=0.8))
@@ -81,7 +81,7 @@ def plot_market_regimes(symbol='ACB'):
             ax.axvline(x=x, color='#2c3e50', linestyle='--',
                        linewidth=1.2, alpha=0.7)
             ax.text(x, price_max * 0.97, label,
-                    ha=align, fontsize=8, color='#2c3e50',
+                    ha=align, fontsize=13, color='#2c3e50',
                     bbox=dict(boxstyle='round,pad=0.25', facecolor='white',
                               edgecolor='#2c3e50', alpha=0.88, linewidth=0.7))
 
@@ -100,7 +100,7 @@ def plot_market_regimes(symbol='ACB'):
 
         ax.legend(handles=[price_line, stable_p, normal_p, extreme_p, split_line],
                   loc='upper left', frameon=True, facecolor='white',
-                  framealpha=0.95, edgecolor='#cccccc', fontsize=9)
+                  framealpha=0.95, edgecolor='#cccccc', fontsize=14)
 
         ax.set_ylabel('Close Price')
         ax.set_xlabel('Year')
